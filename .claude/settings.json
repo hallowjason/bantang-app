@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '\n💡 Tip: 若本輪修正已完成，輸入 /wrap 更新記憶，再輸入 /compact 壓縮 context。'"
+          }
+        ]
+      }
+    ]
+  }
+}

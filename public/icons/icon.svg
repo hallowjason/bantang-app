@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- 背景：amber-700 圓角方形 -->
+  <rect width="512" height="512" rx="96" fill="#b45309"/>
+
+  <!-- 光暈效果 -->
+  <circle cx="256" cy="220" r="160" fill="#d97706" opacity="0.35"/>
+
+  <!-- 上方小裝飾圓點 -->
+  <circle cx="256" cy="90" r="18" fill="#fef3c7" opacity="0.8"/>
+  <line x1="256" y1="108" x2="256" y2="136" stroke="#fef3c7" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- 主角：進 字 -->
+  <text
+    x="256"
+    y="310"
+    font-size="240"
+    font-weight="700"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    fill="white"
+    font-family="serif"
+  >進</text>
+
+  <!-- 下方班別文字 -->
+  <text
+    x="256"
+    y="440"
+    font-size="64"
+    font-weight="400"
+    text-anchor="middle"
+    fill="#fef3c7"
+    font-family="sans-serif"
+    opacity="0.85"
+  >進階班</text>
+</svg>

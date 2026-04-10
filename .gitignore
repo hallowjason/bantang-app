@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+server/.env
+server/serviceAccountKey.json
+server/uploads/
+server/dist/
+server/node_modules/
+*.local

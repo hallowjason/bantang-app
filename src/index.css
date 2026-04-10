@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+/* ─── 全域字型：Noto Serif TC ───────────────────────────── */
+@layer base {
+  html {
+    font-family: 'Noto Serif TC', system-ui, sans-serif;
+    /* 防止 iOS Safari 在 focus input 時自動縮放（最小 16px） */
+    font-size: 16px;
+  }
+
+  /* iOS Safe Area：底部留空給 Home Indicator */
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

@@ -1,0 +1,185 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ──────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myUid() {
+      return request.auth.uid;
+    }
+
+    // 讀取當前使用者的 Firestore 資料
+    function myData() {
+      return get(/databases/$(database)/documents/users/$(myUid())).data;
+    }
+
+    // 最高管理者：主班 或 大領班（權限相同）
+    function isTopAdmin() {
+      return isSignedIn() && (myData().role == 'head_leader' || myData().role == 'class_master');
+    }
+
+    // 班員入口後台管理員：主班 / 大領班 / 小班長
+    function isPortalAdmin() {
+      return isSignedIn() && (
+        myData().role == 'head_leader' ||
+        myData().role == 'class_master' ||
+        myData().role == 'junior_leader'
+      );
+    }
+
+    function isMyClass(classId) {
+      return isSignedIn() && myData().classId == classId;
+    }
+
+    // ─── /users/{userId} ───────────────────────────────────
+    // 所有登入者可讀；本人可更新自己；最高管理者可寫所有人；
+    // 小班長可將 member ↔ junior_leader 互換
+
+    match /users/{userId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn() && (myUid() == userId || isTopAdmin());
+      allow update: if isSignedIn() && (
+        myUid() == userId ||
+        isTopAdmin() ||
+        (isPortalAdmin() &&
+          (resource.data.role == 'member' || resource.data.role == 'junior_leader') &&
+          (request.resource.data.role == 'member' || request.resource.data.role == 'junior_leader'))
+      );
+      allow delete: if isTopAdmin();
+    }
+
+    // ─── /classes/{classId} ────────────────────────────────
+    // 所有登入者可讀；只有最高管理者可寫
+
+    match /classes/{classId} {
+      allow read:  if isSignedIn();
+      allow write: if isTopAdmin();
+    }
+
+    // ─── /members/{memberId} ───────────────────────────────
+    // 所有登入者可讀；所有登入者可建立/更新；只有最高管理者可刪除
+
+    match /members/{memberId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isTopAdmin();
+    }
+
+    // ─── /class_members/{classId}/members/{memberId} ───────
+    // 同班領班 或 最高管理者 可讀寫
+
+    match /class_members/{classId}/members/{memberId} {
+      allow read:  if isSignedIn() && (isMyClass(classId) || isTopAdmin());
+      allow write: if isSignedIn() && (isMyClass(classId) || isTopAdmin());
+    }
+
+    // ─── /attendance/{attendanceId} ────────────────────────
+    // 出席紀錄的 classId 必須和使用者班級一致；最高管理者可讀所有班級
+
+    match /attendance/{attendanceId} {
+      allow read: if isSignedIn() && (
+        resource.data.classId == myData().classId || isTopAdmin()
+      );
+      allow create: if isSignedIn() && (
+        request.resource.data.classId == myData().classId || isTopAdmin()
+      );
+      allow update: if isSignedIn() && (
+        resource.data.classId == myData().classId || isTopAdmin()
+      );
+      allow delete: if isTopAdmin();
+    }
+
+    // ─── /sessions/{sessionId} ─────────────────────────────
+
+    match /sessions/{sessionId} {
+      allow read: if isSignedIn() && (
+        resource.data.classId == myData().classId || isTopAdmin()
+      );
+      allow create: if isSignedIn() && (
+        request.resource.data.classId == myData().classId || isTopAdmin()
+      );
+      allow update: if isSignedIn() && (
+        resource.data.classId == myData().classId || isTopAdmin()
+      );
+      allow delete: if isTopAdmin();
+    }
+
+    // ─── /weekly_tasks/{classId}/weeks/{weekId} ────────────
+    // 同班領班 或 最高管理者 可讀寫
+
+    match /weekly_tasks/{classId}/weeks/{weekId} {
+      allow read:  if isSignedIn() && (isMyClass(classId) || isTopAdmin());
+      allow write: if isSignedIn() && (isMyClass(classId) || isTopAdmin());
+    }
+
+    // ─── /settings/{doc} ───────────────────────────────────
+    // 所有登入者可讀；只有最高管理者可寫
+
+    match /settings/{doc} {
+      allow read:  if isSignedIn();
+      allow write: if isTopAdmin();
+    }
+
+    // ─── /etiquette_items/{itemId} ─────────────────────────
+    // 所有登入者可讀；只有最高管理者可修改
+
+    match /etiquette_items/{itemId} {
+      allow read:  if isSignedIn();
+      allow write: if isTopAdmin();
+    }
+
+    // ─── /schedule_cache/{docId} ───────────────────────────
+    // 任何人可讀（班員課表頁需要）；登入者才可寫
+
+    match /schedule_cache/{docId} {
+      allow read:  if true;
+      allow write: if isSignedIn();
+    }
+
+    // ─── /venues/{venueId} ─────────────────────────────────
+    // 班員入口：任何人可讀；班員後台管理員可寫
+
+    match /venues/{venueId} {
+      allow read:  if true;
+      allow write: if isPortalAdmin();
+    }
+
+    // ─── /events/{eventId} ─────────────────────────────────
+    // 已上架的活動任何人可讀；班員後台管理員可讀寫全部
+
+    match /events/{eventId} {
+      allow read:  if resource.data.isPublished == true || isPortalAdmin();
+      allow write: if isPortalAdmin();
+    }
+
+    // ─── /event_responses/{responseId} ─────────────────────
+    // 任何人可送出意願（create）；班員後台管理員可讀取、管理
+
+    match /event_responses/{responseId} {
+      allow create: if true;
+      allow read:   if isPortalAdmin();
+      allow update, delete: if isPortalAdmin();
+    }
+
+    // ─── /event_yes_counts/{eventId} ───────────────────────
+    // 公開可讀（顯示即時報名人數）；只允許遞增 +1（防止任意篡改）
+
+    match /event_yes_counts/{eventId} {
+      allow read:   if true;
+      allow create: if request.resource.data.count == 1;
+      allow update: if request.resource.data.count == resource.data.count + 1;
+    }
+
+    // ─── 其餘路徑：預設拒絕 ────────────────────────────────
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
