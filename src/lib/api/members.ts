@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut } from './client'
+import { apiGet, apiPost, apiPut, apiFetch } from './client'
 import type { Member, ClassMemberWithName, Attendance, Class } from '../../types'
 
 export async function getClassInfo(classId: string): Promise<Class | null> {
@@ -81,8 +81,12 @@ export async function repairIccfSync(
   sessionId: string,
   classCode: string,
 ): Promise<IccfSyncResult> {
-  return apiPost<IccfSyncResult>(`/api/members/${memberId}/iccf-sync`, {
-    iccfSessionId: sessionId,
-    iccfClassCode: classCode,
+  const res = await apiFetch(`/api/members/${memberId}/iccf-sync`, {
+    method: 'POST',
+    body: JSON.stringify({ iccfSessionId: sessionId, iccfClassCode: classCode }),
   })
+  const body = await res.json()
+  if (res.status === 401) return { status: 'session_expired', message: body.error }
+  if (!body.success) throw new Error(body.error ?? 'API error')
+  return body.data as IccfSyncResult
 }
