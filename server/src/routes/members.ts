@@ -127,8 +127,16 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
 
 // ─── PUT /api/members/:id ────────────────────────────────────────────────────
 
+const MEMBER_EDITABLE_FIELDS: (keyof Member)[] = [
+  'name', 'birthday', 'mentor', 'regionUnit', 'regionNumber',
+  'etiquetteItems', 'notes', 'initialAttendanceCount',
+]
+
 router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const update = req.body as Partial<Omit<Member, '_id'>>
+  const raw = req.body as Partial<Member>
+  const update = Object.fromEntries(
+    Object.entries(raw).filter(([k]) => MEMBER_EDITABLE_FIELDS.includes(k as keyof Member)),
+  )
   const db = getDB()
   await db.collection<Member>('members').updateOne({ _id: req.params.id }, { $set: update })
   res.json({ success: true })
@@ -158,10 +166,7 @@ router.post('/:id/iccf-sync', async (req: AuthenticatedRequest, res: Response): 
 
   const alive = await ensureAlive(iccfSessionId)
   if (!alive.ok) {
-    res.json({
-      success: true,
-      data: { status: 'session_expired', message: alive.message },
-    })
+    res.status(401).json({ success: false, error: alive.message, code: alive.reason })
     return
   }
 

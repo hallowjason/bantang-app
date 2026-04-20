@@ -24,8 +24,11 @@ export async function ensureAlive(sessionId: string): Promise<EnsureAliveResult>
     return { ok: false, reason: 'not_found', message: 'iccf session 不存在或已過期，請重新登入' }
   }
 
-  const alive = await ping(session.cookieJar)
-  if (!alive) {
+  const pingResult = await ping(session.cookieJar)
+  if (pingResult === 'unreachable') {
+    return { ok: false, reason: 'expired', message: 'iccf 伺服器暫時無法連線，請稍後再試' }
+  }
+  if (pingResult === 'expired') {
     await deleteSession(sessionId)
     return { ok: false, reason: 'expired', message: 'iccf session 已過期，請重新登入' }
   }
