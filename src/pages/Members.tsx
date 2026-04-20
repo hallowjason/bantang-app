@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getMembers, removeMemberFromClass, getClassInfo } from '../lib/api/members'
+import { getMembers, removeMemberFromClass, getClassInfo, repairIccfSync } from '../lib/api/members'
+import { iccfGetCurrentSessions, type IccfLoginResult, type IccfSessionInfo } from '../lib/api/iccfSession'
+import { getIccfCopy, isRetryableStatus } from '../lib/iccfCopy'
+import IccfLoginModal from '../components/IccfLoginModal'
 import MemberForm from '../components/MemberForm'
 import SheetsImportModal from '../components/SheetsImportModal'
-import type { Member } from '../types'
+import type { Member, IccfSyncStatus } from '../types'
 
 // ─── 移除對話框 ───────────────────────────────────────────
 
@@ -88,6 +91,12 @@ export default function Members() {
   const [showImport, setShowImport] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null)
 
+  // iccf repair state
+  const [iccfSession, setIccfSession] = useState<IccfSessionInfo | null>(null)
+  const [showIccfLogin, setShowIccfLogin] = useState(false)
+  const [repairTarget, setRepairTarget] = useState<Member | null>(null)
+  const [repairingId, setRepairingId] = useState<string | null>(null)
+
   // 長按偵測
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wasLongPress = useRef(false)
@@ -108,6 +117,59 @@ export default function Members() {
   }, [user?.classId])
 
   useEffect(() => { load() }, [load])
+
+  // Load existing iccf session once classCode is known
+  useEffect(() => {
+    if (!iccfClassCode) return
+    iccfGetCurrentSessions()
+      .then(sessions => { if (sessions.length > 0) setIccfSession(sessions[0]) })
+      .catch(() => { /* non-critical */ })
+  }, [iccfClassCode])
+
+  const handleRepair = (member: Member) => {
+    if (!iccfClassCode) return
+    if (!iccfSession) {
+      setRepairTarget(member)
+      setShowIccfLogin(true)
+      return
+    }
+    doRepair(member, iccfSession.sessionId)
+  }
+
+  const doRepair = async (member: Member, sessionId: string) => {
+    if (!iccfClassCode) return
+    setRepairingId(member.id)
+    try {
+      const result = await repairIccfSync(member.id, sessionId, iccfClassCode)
+      if (result.status === 'session_expired') {
+        setIccfSession(null)
+        setRepairTarget(member)
+        setShowIccfLogin(true)
+        return
+      }
+      // Refresh list to pick up updated iccfStatus
+      await load()
+    } finally {
+      setRepairingId(null)
+      setRepairTarget(null)
+    }
+  }
+
+  const handleIccfLoginSuccess = async (result: IccfLoginResult) => {
+    setShowIccfLogin(false)
+    const sessionInfo: IccfSessionInfo = {
+      sessionId: result.sessionId,
+      iccfAccount: '',
+      profile: result.profile,
+      classes: result.classes,
+      lastUsedAt: new Date().toISOString(),
+      expiresAt: result.expiresAt,
+    }
+    setIccfSession(sessionInfo)
+    if (repairTarget) {
+      await doRepair(repairTarget, result.sessionId)
+    }
+  }
 
   const startPress = (member: Member) => {
     wasLongPress.current = false
@@ -185,32 +247,65 @@ export default function Members() {
               共 {members.length} 位班員・長按可移除出班
             </p>
             <ul className="flex flex-col gap-3">
-              {members.map(member => (
-                <li key={member.id}>
-                  <button
-                    onClick={() => handleCardClick(member)}
-                    onPointerDown={() => startPress(member)}
-                    onPointerUp={endPress}
-                    onPointerLeave={endPress}
-                    onPointerCancel={endPress}
-                    className="w-full text-left bg-white rounded-2xl shadow-sm border border-amber-100 px-5 py-4 hover:bg-amber-50 active:scale-[0.98] transition-all select-none"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold text-gray-800">{member.name}</span>
-                      <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full shrink-0">
-                        {member.initialAttendanceCount} 堂
-                      </span>
-                    </div>
-                    {regionLabel(member) && (
-                      <p className="text-xs text-gray-500 mt-1.5">{regionLabel(member)}</p>
+              {members.map(member => {
+                const copy = getIccfCopy(member.iccfStatus as IccfSyncStatus | undefined)
+                const retryable = iccfClassCode && isRetryableStatus(member.iccfStatus as IccfSyncStatus | undefined)
+                const isRepairing = repairingId === member.id
+                return (
+                  <li key={member.id}>
+                    <button
+                      onClick={() => handleCardClick(member)}
+                      onPointerDown={() => startPress(member)}
+                      onPointerUp={endPress}
+                      onPointerLeave={endPress}
+                      onPointerCancel={endPress}
+                      className="w-full text-left bg-white rounded-2xl shadow-sm border border-amber-100 px-5 py-4 hover:bg-amber-50 active:scale-[0.98] transition-all select-none"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold text-gray-800">{member.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {copy && member.iccfStatus !== 'synced' && (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                              copy.tone === 'green' ? 'bg-green-50 text-green-700 border-green-200' :
+                              copy.tone === 'red'   ? 'bg-red-50 text-red-500 border-red-200' :
+                              copy.tone === 'blue'  ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                                      'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              {copy.badge}
+                            </span>
+                          )}
+                          <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                            {member.initialAttendanceCount} 堂
+                          </span>
+                        </div>
+                      </div>
+                      {regionLabel(member) && (
+                        <p className="text-xs text-gray-500 mt-1.5">{regionLabel(member)}</p>
+                      )}
+                    </button>
+                    {retryable && (
+                      <button
+                        onClick={e => { e.stopPropagation(); handleRepair(member) }}
+                        disabled={isRepairing}
+                        className="mt-1 w-full text-xs text-amber-700 border border-amber-200 rounded-xl py-2 hover:bg-amber-50 active:bg-amber-100 disabled:opacity-50 transition-colors"
+                      >
+                        {isRepairing ? '同步中…' : '重試 iccf 補入'}
+                      </button>
                     )}
-                  </button>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
           </>
         )}
       </main>
+
+      {showIccfLogin && (
+        <IccfLoginModal
+          onSuccess={handleIccfLoginSuccess}
+          onCancel={() => { setShowIccfLogin(false); setRepairTarget(null) }}
+        />
+      )}
 
       {/* 新增表單 */}
       {showForm && user && (

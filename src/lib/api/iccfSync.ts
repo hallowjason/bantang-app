@@ -1,6 +1,7 @@
 import { apiPost, apiGet } from './client'
 
 export type SyncJobStatus = 'pending' | 'processing' | 'done' | 'failed'
+export type SyncJobErrorCode = 'session_expired' | 'network_error' | 'unknown'
 
 export interface SyncJobResult {
   marked: string[]
@@ -13,8 +14,16 @@ export interface SyncJob {
   status: SyncJobStatus
   result: SyncJobResult | null
   error: string | null
+  errorCode: SyncJobErrorCode | null
   createdAt: string
   updatedAt: string
+}
+
+export interface CreateSyncJobResponse {
+  jobId: string | null
+  message?: string
+  /** True when the iccf session was dead before the job was even queued. */
+  sessionExpired?: boolean
 }
 
 export async function createIccfSyncJob(params: {
@@ -22,9 +31,8 @@ export async function createIccfSyncJob(params: {
   date: string
   sessionId: string
   topicName: string
-}): Promise<{ jobId: string | null; message?: string }> {
-  const data = await apiPost<{ jobId: string | null; message?: string }>('/api/iccf/sync', params)
-  return data
+}): Promise<CreateSyncJobResponse> {
+  return apiPost<CreateSyncJobResponse>('/api/iccf/sync', params)
 }
 
 export async function pollIccfSyncJob(jobId: string): Promise<SyncJob> {
