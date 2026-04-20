@@ -100,10 +100,14 @@ async function fetchProfile(http: AxiosInstance): Promise<IccfProfile | null> {
     const html = decodeBig5(res.data as Buffer)
     const $ = cheerio.load(html)
     const text = $('body').text().replace(/\s+/g, ' ').trim()
-    // Heuristic: topmenu shows e.g. "精明019 區 -- 蔡喬淞"
-    const match = text.match(/([^\s]+\s*\d+\s*區)[^\u4e00-\u9fff]*([\u4e00-\u9fff]{2,4})/)
-    if (match) {
-      return { area: match[1].trim(), name: match[2].trim() }
+
+    // iccf header format: "[ 中和015區 ] 登出 | ... | 改密碼 [ 簡以淳 ]"
+    // Extract area from first bracket containing 區, name from last bracket of CJK chars
+    const areaMatch = text.match(/\[\s*([^\]]+\d+\s*區)\s*\]/)
+    const nameMatches = [...text.matchAll(/\[\s*([\u4e00-\u9fff]{2,5})\s*\]/g)]
+    const name = nameMatches.at(-1)?.[1]?.trim()
+    if (areaMatch && name) {
+      return { area: areaMatch[1].trim(), name }
     }
     return null
   } catch {
