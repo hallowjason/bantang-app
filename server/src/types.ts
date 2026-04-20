@@ -90,6 +90,8 @@ export interface Session {
   isFinalized: boolean
   finalizedAt?: string | null
   finalizedBy?: string | null
+  iccfSyncedAt?: string | null   // ISO timestamp of last successful iccf attendance sync
+  iccfSyncJobId?: string | null  // jobId of the last successful sync
 }
 
 export interface WeeklyTask {

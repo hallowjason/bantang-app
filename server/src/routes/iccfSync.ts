@@ -3,7 +3,7 @@ import { getDB } from '../db'
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
 import { createSyncJob, getJob } from '../jobs/iccfSyncWorker'
 import { ensureAlive } from '../iccf/ensureAlive'
-import type { Class, Attendance } from '../types'
+import type { Class, Attendance, Session } from '../types'
 
 const router = Router()
 router.use(requireAuth)
@@ -18,11 +18,12 @@ router.use(requireAuth)
  * The worker runs asynchronously — poll GET /:jobId for progress.
  */
 router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { classId, date, sessionId, topicName } = req.body as {
+  const { classId, date, sessionId, topicName, force } = req.body as {
     classId?: string
     date?: string
     sessionId?: string
     topicName?: string
+    force?: boolean
   }
 
   if (!classId || !date || !sessionId) {
@@ -51,6 +52,22 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
   }
 
   const db = getDB()
+
+  // Duplicate-sync guard: if this (classId, date) Session was already synced
+  // successfully, require the caller to pass force: true.
+  const existingSession = await db.collection<Session>('sessions').findOne({ _id: `${classId}_${date}` })
+  if (existingSession?.iccfSyncedAt && !force) {
+    res.json({
+      success: true,
+      data: {
+        jobId: null,
+        alreadySynced: true,
+        iccfSyncedAt: existingSession.iccfSyncedAt,
+        message: '此班期已同步過 iccf；如需重新送出，請確認後再試',
+      },
+    })
+    return
+  }
 
   // Look up the B-number (e.g. B3000549) stored as iccfClassCode in the class document
   const cls = await db.collection<Class>('classes').findOne({ _id: classId })

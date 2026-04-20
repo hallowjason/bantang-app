@@ -24,6 +24,9 @@ export interface CreateSyncJobResponse {
   message?: string
   /** True when the iccf session was dead before the job was even queued. */
   sessionExpired?: boolean
+  /** True when this (classId, date) was already synced successfully. Pass force:true to override. */
+  alreadySynced?: boolean
+  iccfSyncedAt?: string
 }
 
 export async function createIccfSyncJob(params: {
@@ -31,6 +34,7 @@ export async function createIccfSyncJob(params: {
   date: string
   sessionId: string
   topicName: string
+  force?: boolean
 }): Promise<CreateSyncJobResponse> {
   return apiPost<CreateSyncJobResponse>('/api/iccf/sync', params)
 }
