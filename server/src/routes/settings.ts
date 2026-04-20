@@ -72,17 +72,22 @@ router.post('/init', requireTopAdmin, async (_req, res: Response): Promise<void>
     { upsert: true },
   )
 
-  // Etiquette items: only insert if item_01 doesn't exist
-  const existing = await db.collection<EtiquetteItem>('etiquette_items').findOne({ _id: 'item_01' })
-  if (!existing) {
-    const items: EtiquetteItem[] = DEFAULT_ETIQUETTE_NAMES.map((name, i) => ({
-      _id: `item_${String(i + 1).padStart(2, '0')}`,
-      name,
-      order: i + 1,
-      isActive: true,
-    }))
-    await db.collection<EtiquetteItem>('etiquette_items').insertMany(items)
-  }
+  // Etiquette items: upsert each so concurrent init calls don't race on insertMany.
+  const items: EtiquetteItem[] = DEFAULT_ETIQUETTE_NAMES.map((name, i) => ({
+    _id: `item_${String(i + 1).padStart(2, '0')}`,
+    name,
+    order: i + 1,
+    isActive: true,
+  }))
+  await db.collection<EtiquetteItem>('etiquette_items').bulkWrite(
+    items.map(item => ({
+      updateOne: {
+        filter: { _id: item._id },
+        update: { $setOnInsert: item },
+        upsert: true,
+      },
+    })),
+  )
 
   res.json({ success: true })
 })
