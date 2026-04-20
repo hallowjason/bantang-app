@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb'
 import { getDB } from '../db'
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
 import type { Member, ClassMember, Attendance, Class } from '../types'
-import { getSession, touchSession } from '../iccf/sessionStore'
+import { ensureAlive } from '../iccf/ensureAlive'
 import { addMember as iccfAddMember } from '../iccf/client'
 
 interface ClassMemberWithName extends ClassMember {
@@ -87,13 +87,17 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
   let iccfResult: { status: string; iccfMemberId?: string; message?: string } | null = null
 
   if (iccfSessionId && iccfClassCode) {
-    const session = await getSession(iccfSessionId)
-    if (!session) {
-      iccfResult = { status: 'error', message: 'iccf session 不存在或已過期，請重新登入' }
+    const alive = await ensureAlive(iccfSessionId)
+    if (!alive.ok) {
+      iccfResult = { status: 'session_expired', message: alive.message }
+      await db.collection<Member>('members').updateOne(
+        { _id: memberId },
+        { $set: { iccfStatus: 'error', iccfLastError: alive.message } },
+      )
     } else {
       try {
         const r = await iccfAddMember(
-          session.cookieJar,
+          alive.session.cookieJar,
           newMember.name,
           newMember.regionUnit,
           iccfClassCode,
@@ -108,7 +112,6 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
         if (r.iccfMemberId) iccfUpdate.iccfMemberId = r.iccfMemberId
 
         await db.collection<Member>('members').updateOne({ _id: memberId }, { $set: iccfUpdate })
-        await touchSession(iccfSessionId)
       } catch (err) {
         iccfResult = { status: 'error', message: (err as Error).message }
         await db.collection<Member>('members').updateOne(
@@ -129,6 +132,64 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
   const db = getDB()
   await db.collection<Member>('members').updateOne({ _id: req.params.id }, { $set: update })
   res.json({ success: true })
+})
+
+// ─── POST /api/members/:id/iccf-sync ─────────────────────────────────────────
+//
+// Re-run iccf 補入 for a member whose previous sync failed
+// (iccfStatus in not_found / name_mismatch / duplicate / forbidden / error).
+// Body: { iccfSessionId, iccfClassCode }
+router.post('/:id/iccf-sync', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const { iccfSessionId, iccfClassCode } = req.body as {
+    iccfSessionId?: string
+    iccfClassCode?: string
+  }
+  if (!iccfSessionId || !iccfClassCode) {
+    res.status(400).json({ success: false, error: 'iccfSessionId 與 iccfClassCode 必填' })
+    return
+  }
+
+  const db = getDB()
+  const member = await db.collection<Member>('members').findOne({ _id: req.params.id })
+  if (!member) {
+    res.status(404).json({ success: false, error: 'Member not found' })
+    return
+  }
+
+  const alive = await ensureAlive(iccfSessionId)
+  if (!alive.ok) {
+    res.json({
+      success: true,
+      data: { status: 'session_expired', message: alive.message },
+    })
+    return
+  }
+
+  try {
+    const r = await iccfAddMember(
+      alive.session.cookieJar,
+      member.name,
+      member.regionUnit,
+      iccfClassCode,
+    )
+
+    const iccfUpdate: Partial<Member> = {
+      iccfStatus: r.status === 'synced' ? 'synced' : (r.status as Member['iccfStatus']),
+      iccfSyncedAt: new Date().toISOString(),
+      iccfLastError: r.status !== 'synced' ? r.message : undefined,
+    }
+    if (r.iccfMemberId) iccfUpdate.iccfMemberId = r.iccfMemberId
+
+    await db.collection<Member>('members').updateOne({ _id: req.params.id }, { $set: iccfUpdate })
+    res.json({ success: true, data: r })
+  } catch (err) {
+    const message = (err as Error).message
+    await db.collection<Member>('members').updateOne(
+      { _id: req.params.id },
+      { $set: { iccfStatus: 'error', iccfLastError: message } },
+    )
+    res.json({ success: true, data: { status: 'error', message } })
+  }
 })
 
 // ─── POST /api/members/:id/remove-from-class ─────────────────────────────────

@@ -2,6 +2,7 @@ import { Router, Response } from 'express'
 import { getDB } from '../db'
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
 import { createSyncJob, getJob } from '../jobs/iccfSyncWorker'
+import { ensureAlive } from '../iccf/ensureAlive'
 import type { Class, Attendance } from '../types'
 
 const router = Router()
@@ -26,6 +27,16 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
 
   if (!classId || !date || !sessionId) {
     res.status(400).json({ success: false, error: 'classId, date, sessionId are required' })
+    return
+  }
+
+  // Ping iccf upfront so we can ask the leader to re-login before a job is queued.
+  const alive = await ensureAlive(sessionId)
+  if (!alive.ok) {
+    res.json({
+      success: true,
+      data: { jobId: null, sessionExpired: true, message: alive.message },
+    })
     return
   }
 
@@ -94,6 +105,7 @@ function toJobDto(job: ReturnType<typeof getJob>) {
     status: job.status,
     result: job.result ?? null,
     error: job.error ?? null,
+    errorCode: job.errorCode ?? null,
     createdAt: job.createdAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
   }

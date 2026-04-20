@@ -55,6 +55,7 @@ export type IccfSyncStatus =
   | 'name_mismatch'
   | 'duplicate'
   | 'forbidden'
+  | 'session_expired'
   | 'error'
 
 // ─── /members/{memberId}（不綁定班級） ────────────────────
