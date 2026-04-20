@@ -80,7 +80,7 @@ export async function requireAuth(
     } as unknown as AppUser & { uid: string }
 
     next()
-  } catch (err) {
+  } catch {
     res.status(401).json({ success: false, error: 'Invalid or expired token' })
   }
 }

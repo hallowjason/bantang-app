@@ -8,7 +8,7 @@ import {
   listSessionsByLeader,
   touchSession,
 } from '../iccf/sessionStore'
-import { IccfError, isIccfError } from '../iccf/errors'
+import { isIccfError } from '../iccf/errors'
 import { getDB } from '../db'
 import type { AppUser, Class } from '../types'
 
