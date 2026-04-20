@@ -28,15 +28,10 @@ jobs:
           java-version: '17'
 
       - name: Install root deps
-        run: npm install --no-audit --no-fund
-
-      # rolldown's linux-x64-gnu native binding is an optionalDependency that
-      # mac-generated lockfiles omit. Install explicitly for ubuntu runners.
-      - name: Install rolldown linux binding
-        run: npm install --no-save --no-audit --no-fund @rolldown/binding-linux-x64-gnu
+        run: npm ci
 
       - name: Install server deps
-        run: npm --prefix server install --no-audit --no-fund
+        run: npm --prefix server ci
 
       - name: Install Playwright browsers (chromium only)
         run: npx playwright install --with-deps chromium
