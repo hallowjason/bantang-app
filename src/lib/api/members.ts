@@ -75,3 +75,14 @@ export async function getMemberAttendance(memberId: string): Promise<Attendance[
 export async function getMemberActiveClasses(memberId: string): Promise<ClassMemberWithName[]> {
   return apiGet<ClassMemberWithName[]>(`/api/members/${memberId}/active-classes`)
 }
+
+export async function repairIccfSync(
+  memberId: string,
+  sessionId: string,
+  classCode: string,
+): Promise<IccfSyncResult> {
+  return apiPost<IccfSyncResult>(`/api/members/${memberId}/iccf-sync`, {
+    iccfSessionId: sessionId,
+    iccfClassCode: classCode,
+  })
+}

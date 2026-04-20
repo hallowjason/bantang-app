@@ -81,6 +81,8 @@ export default function Attendance() {
   const [defaultTopic, setDefaultTopic]           = useState('')
   const [iccfSyncJob, setIccfSyncJob]             = useState<SyncJob | null>(null)
   const [pendingFinalize, setPendingFinalize]     = useState(false)
+  // Holds topicName when finalize already done but iccf sync failed due to expired session
+  const [pendingIccfSync, setPendingIccfSync]     = useState<{ topicName: string } | null>(null)
   const pollTimerRef                              = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // 追蹤已初始化的 classId_date，避免重複呼叫 initializeAbsentForAll
@@ -227,42 +229,41 @@ export default function Attendance() {
     }
   }
 
+  // Trigger iccf sync job after finalize. Can be called standalone on session-expired retry.
+  const triggerIccfSync = async (sessionId: string, topicName: string) => {
+    if (!user?.classId) return
+    try {
+      const resp = await createIccfSyncJob({ classId: user.classId, date, sessionId, topicName })
+      if (resp.sessionExpired) {
+        // Session died between login and sync — ask to re-login, then retry just the sync
+        setIccfSession(null)
+        setPendingIccfSync({ topicName })
+        setShowIccfLogin(true)
+        return
+      }
+      if (resp.jobId) {
+        setIccfSyncJob({
+          jobId: resp.jobId,
+          status: 'pending',
+          result: null,
+          error: null,
+          errorCode: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    } catch {
+      // iccf sync failure is non-blocking
+    }
+  }
+
   const doFinalize = async (sessionId: string, topicName: string) => {
     if (!user?.classId || !user.uid) return
     setFinalizing(true)
     try {
       await finalizeSession(user.classId, date, user.uid)
-
       if (iccfClassCode && sessionId) {
-        try {
-          const { jobId, message } = await createIccfSyncJob({
-            classId: user.classId,
-            date,
-            sessionId,
-            topicName,
-          })
-          if (jobId) {
-            setIccfSyncJob({
-              jobId,
-              status: 'pending',
-              result: null,
-              error: null,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            })
-          } else if (message) {
-            setIccfSyncJob({
-              jobId: '',
-              status: 'done',
-              result: { marked: [], notFound: [] },
-              error: null,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            })
-          }
-        } catch {
-          // iccf sync failure is non-blocking
-        }
+        await triggerIccfSync(sessionId, topicName)
       }
     } finally {
       setFinalizing(false)
@@ -303,6 +304,15 @@ export default function Attendance() {
       expiresAt: result.expiresAt,
     }
     setIccfSession(sessionInfo)
+
+    if (pendingIccfSync) {
+      // Finalize already done — only retry the iccf sync job
+      const { topicName } = pendingIccfSync
+      setPendingIccfSync(null)
+      await triggerIccfSync(result.sessionId, topicName)
+      return
+    }
+
     if (pendingFinalize) {
       // Login completed — now show topic confirm
       const topic = await fetchDefaultTopic()
@@ -479,7 +489,9 @@ export default function Attendance() {
                 iccfSyncJob.status === 'done'
                   ? 'bg-green-50 text-green-700 border border-green-200'
                   : iccfSyncJob.status === 'failed'
-                    ? 'bg-red-50 text-red-600 border border-red-200'
+                    ? iccfSyncJob.errorCode === 'session_expired'
+                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                      : 'bg-red-50 text-red-600 border border-red-200'
                     : 'bg-blue-50 text-blue-600 border border-blue-200'
               }`}>
                 {iccfSyncJob.status === 'pending' && '⏳ iccf 同步排隊中…'}
@@ -488,7 +500,22 @@ export default function Attendance() {
                   `✓ iccf 同步完成：${iccfSyncJob.result?.marked.length ?? 0} 人出席已上傳` +
                   (iccfSyncJob.result?.notFound.length ? `，${iccfSyncJob.result.notFound.length} 人未找到` : '')
                 )}
-                {iccfSyncJob.status === 'failed' && `✗ iccf 同步失敗：${iccfSyncJob.error ?? '未知錯誤'}`}
+                {iccfSyncJob.status === 'failed' && iccfSyncJob.errorCode === 'session_expired' && (
+                  <span>
+                    ⚠ iccf session 已過期
+                    <button
+                      className="ml-2 underline font-semibold"
+                      onClick={() => {
+                        setIccfSession(null)
+                        setPendingIccfSync({ topicName: '' })
+                        setShowIccfLogin(true)
+                      }}
+                    >重新登入並重試</button>
+                  </span>
+                )}
+                {iccfSyncJob.status === 'failed' && iccfSyncJob.errorCode !== 'session_expired' && (
+                  `✗ iccf 同步失敗：${iccfSyncJob.error ?? '未知錯誤'}`
+                )}
               </div>
             )}
 

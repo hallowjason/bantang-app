@@ -3,8 +3,9 @@ import { useAuth } from '../context/AuthContext'
 import { addMember, updateMember, type IccfSyncResult } from '../lib/api/members'
 import { iccfGetCurrentSessions, type IccfLoginResult, type IccfSessionInfo } from '../lib/api/iccfSession'
 import { getRegionUnits, getEtiquetteItems, addRegionUnit } from '../lib/api/settings'
+import { getIccfCopy } from '../lib/iccfCopy'
 import IccfLoginModal from './IccfLoginModal'
-import type { Member, EtiquetteItem, EtiquetteStatus } from '../types'
+import type { Member, EtiquetteItem, EtiquetteStatus, IccfSyncStatus } from '../types'
 
 // ─── 狀態設定 ─────────────────────────────────────────────
 
@@ -155,6 +156,13 @@ export default function MemberForm({ classId, iccfClassCode, member, onClose, on
           : undefined
         const result = await addMember(memberData, classId, user?.uid ?? '', iccfOptions)
         if (result.iccf) {
+          if (result.iccf.status === 'session_expired') {
+            // Session died between login and save — clear session, re-prompt, retry
+            setIccfSession(null)
+            setPendingSubmit(true)
+            setShowIccfLogin(true)
+            return
+          }
           setIccfResult(result.iccf)
           if (result.iccf.status === 'synced') {
             setTimeout(onSaved, 1500)
@@ -246,21 +254,32 @@ export default function MemberForm({ classId, iccfClassCode, member, onClose, on
         )}
 
         {/* iccf 同步結果 */}
-        {iccfResult && (
-          <div className={`text-xs rounded-xl px-4 py-3 shrink-0 ${
-            iccfResult.status === 'synced'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-amber-50 text-amber-700 border border-amber-200'
-          }`}>
-            {iccfResult.status === 'synced'
-              ? `✓ iccf 補入成功${iccfResult.iccfMemberId ? `（ID: ${iccfResult.iccfMemberId}）` : ''}`
-              : `⚠ iccf 補入未完成：${iccfResult.message ?? iccfResult.status}`
-            }
-            {iccfResult.status !== 'synced' && (
-              <p className="mt-1 text-amber-600">班員已建立，請手動至 iccf 補入。</p>
-            )}
-          </div>
-        )}
+        {iccfResult && (() => {
+          const copy = getIccfCopy(iccfResult.status as IccfSyncStatus)
+          const toneClass =
+            copy?.tone === 'green' ? 'bg-green-50 text-green-700 border-green-200' :
+            copy?.tone === 'red'   ? 'bg-red-50 text-red-600 border-red-200' :
+            copy?.tone === 'blue'  ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                     'bg-amber-50 text-amber-700 border-amber-200'
+          return (
+            <div className={`text-xs rounded-xl px-4 py-3 shrink-0 border ${toneClass}`}>
+              <p className="font-semibold">
+                {iccfResult.status === 'synced'
+                  ? `✓ iccf 補入成功${iccfResult.iccfMemberId ? `（ID: ${iccfResult.iccfMemberId}）` : ''}`
+                  : `⚠ ${copy?.summary ?? iccfResult.status}`
+                }
+              </p>
+              {iccfResult.status !== 'synced' && copy?.suggestedReply && (
+                <p className="mt-1.5 leading-snug text-current opacity-80">
+                  {copy.suggestedReply(iccfResult.message ?? '')}
+                </p>
+              )}
+              {iccfResult.status !== 'synced' && !copy?.suggestedReply && (
+                <p className="mt-1 opacity-70">班員已建立，請手動至 iccf 補入。</p>
+              )}
+            </div>
+          )
+        })()}
 
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2 shrink-0">
