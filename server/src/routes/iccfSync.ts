@@ -31,11 +31,11 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
 
   const db = getDB()
 
-  // Look up the iccfClassCode from the class document
+  // Look up the B-number (e.g. B3000549) stored as iccfClassCode in the class document
   const cls = await db.collection<Class>('classes').findOne({ _id: classId })
-  const classCode = cls?.iccfClassCode?.trim()
-  if (!classCode) {
-    res.status(400).json({ success: false, error: '此班尚未設定 iccf 班別代碼' })
+  const iccfBCode = cls?.iccfClassCode?.trim()
+  if (!iccfBCode) {
+    res.status(400).json({ success: false, error: '此班尚未設定 iccf 班別編號（B-number）' })
     return
   }
 
@@ -63,7 +63,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
 
   const job = createSyncJob({
     classId,
-    classCode,
+    classCode: iccfBCode,
     date,
     topicName: topicName?.trim() ?? '',
     sessionId,

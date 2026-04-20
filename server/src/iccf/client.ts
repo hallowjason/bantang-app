@@ -6,7 +6,7 @@ import { buildBig5FormBody, encodeBig5URIComponent, decodeBig5 } from './encodin
 import { IccfError } from './errors'
 import {
   parseAddMemberResult,
-  parseClassList,
+  parseClassServiceList,
   parseCourseSessionList,
   parseAttendanceMemberList,
   type AddMemberResult,
@@ -180,13 +180,15 @@ export async function ping(jar: CookieJar): Promise<boolean> {
 }
 
 /**
- * Fetch the list of classes the logged-in leader can operate on.
+ * Fetch the list of active classes the logged-in leader can manage.
+ * Uses the 班務 page (select_class_service5.php) which contains both
+ * the sec_code (e.g. "TWC") and the B-number (e.g. "B3000549").
  */
 export async function listClasses(jar: CookieJar): Promise<IccfClassEntry[]> {
   const http = makeHttp(jar)
-  const res = await http.get('/publicphp/header_class5.php?title3=' + encodeURIComponent('班期'))
+  const res = await http.get('/class/select_class_service5.php?first=T')
   const html = decodeBig5(res.data as Buffer)
-  return parseClassList(html)
+  return parseClassServiceList(html)
 }
 
 /**

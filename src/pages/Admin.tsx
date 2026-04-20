@@ -157,11 +157,11 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
                   <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex flex-col gap-2.5">
                     <p className="text-xs font-medium text-blue-700">🔗 iccf 同步設定</p>
                     <div className="flex flex-col gap-1">
-                      <label className="text-xs text-gray-500">iccf 班別代碼<span className="text-gray-400 ml-1">（如：TWT019）</span></label>
+                      <label className="text-xs text-gray-500">iccf 班別編號<span className="text-gray-400 ml-1">（登入 iccf → 班期 → 班務，找班別編號欄，如：B3000549）</span></label>
                       <input
                         value={editIccfCode}
                         onChange={e => setEditIccfCode(e.target.value.toUpperCase())}
-                        placeholder="TWT019"
+                        placeholder="B3000549"
                         className="border border-blue-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
                       />
                     </div>

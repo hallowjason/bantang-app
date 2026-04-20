@@ -61,8 +61,46 @@ export function parseAddMemberResult(html: string): AddMemberResult {
 }
 
 /**
- * Parse the class selection page to extract sec_class codes.
- * Also tries to extract class_code (e.g. B3000549) from the same href for course list access.
+ * Parse the 班務 page (select_class_service5.php) to extract class entries.
+ * Returns entries with both the sec_code (e.g. "TWC") and B-number (e.g. "B3000549").
+ * Only returns active classes (上課中), not closed ones (已結班).
+ */
+export function parseClassServiceList(
+  html: string,
+): Array<{ classCode: string; className: string; iccfClassCode: string }> {
+  const $ = cheerio.load(html)
+  const results: Array<{ classCode: string; className: string; iccfClassCode: string }> = []
+  const seen = new Set<string>()
+
+  $('a[href]').each((_, el) => {
+    const href = $(el).attr('href') ?? ''
+    const bMatch = href.match(/[?&]class_code=(B\d+)/)
+    const secMatch = href.match(/[?&]class_sec_code=([A-Z][A-Z0-9]*)/)
+    if (!bMatch || !secMatch) return
+
+    const iccfClassCode = bMatch[1]
+    const classCode = secMatch[1]
+    if (seen.has(iccfClassCode)) return
+    seen.add(iccfClassCode)
+
+    // Find the row to check if this class is still active (上課中)
+    const $row = $(el).closest('tr')
+    const rowText = $row.text()
+    if (rowText.includes('已結班')) return
+
+    // Class name from the name link (class_type contains the full name)
+    const nameLink = $row.find('a[href*="show_classmbr5"]').first()
+    const className = nameLink.text().trim() || iccfClassCode
+
+    results.push({ classCode, iccfClassCode, className })
+  })
+
+  return results
+}
+
+/**
+ * @deprecated Use parseClassServiceList instead.
+ * Parse the class selection nav page — kept for fallback only.
  */
 export function parseClassList(
   html: string,
@@ -73,12 +111,10 @@ export function parseClassList(
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') ?? ''
-    // sec_class can be pure letters (TWC) or letters+digits (TWT019)
     const m = href.match(/[?&]?sec_class=([A-Z][A-Z0-9]*)/)
     if (!m || seen.has(m[1])) return
     seen.add(m[1])
 
-    // Try to extract the numeric class_code (e.g. B3000549) from the same URL
     const codeMatch = href.match(/(?:^|[?&])class_code=([A-Z][A-Z0-9]+)/)
 
     results.push({

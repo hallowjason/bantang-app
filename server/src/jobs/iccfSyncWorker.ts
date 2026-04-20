@@ -9,7 +9,7 @@ export type SyncJobStatus = 'pending' | 'processing' | 'done' | 'failed'
 export interface IccfSyncJob {
   jobId: string
   classId: string
-  classCode: string   // class_sec_code (e.g. "TWC")
+  classCode: string   // iccf B-number (e.g. "B3000549"), stored as class.iccfClassCode in DB
   date: string        // YYYY-MM-DD
   topicName: string   // 課程名稱 for 設定課程 step
   sessionId: string
@@ -79,14 +79,15 @@ async function processJob(jobId: string): Promise<void> {
 
     await touchSession(job.sessionId)
 
-    // Look up iccfClassCode (class_code like B3000549) from the session's class list
-    const classEntry = session.classes.find(c => c.classCode === job.classCode)
-    const iccfClassCode = classEntry?.iccfClassCode
+    // job.classCode is the B-number (e.g. "B3000549") stored in the bantang class.
+    // Find the matching session entry to get the sec_code (e.g. "TWC") for form submissions.
+    const classEntry = session.classes.find(c => c.iccfClassCode === job.classCode)
+    const secCode = classEntry?.classCode ?? job.classCode
 
     const result = await markAttendance(
       session.cookieJar,
+      secCode,
       job.classCode,
-      iccfClassCode,
       job.date,
       job.topicName,
       job.presentMemberNames,
