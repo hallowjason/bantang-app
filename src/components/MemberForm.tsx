@@ -172,7 +172,7 @@ export default function MemberForm({ classId, iccfClassCode, member, onClose, on
           onSaved()
         }
       }
-    } catch (err) {
+    } catch {
       setError('儲存失敗，請再試一次')
     } finally {
       setSaving(false)

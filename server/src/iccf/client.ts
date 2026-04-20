@@ -25,11 +25,8 @@ export interface MarkAttendanceResult {
 }
 
 const BASE = 'https://iccf.ikd.org.tw'
-const LOGIN_URL = `${BASE}/55index.php`
-const LOGOUT_URL = `${BASE}/logout5.php`
 const WARM_MARKER = 'online_warm5.php'
 const LOGIN_PAGE_MARKER = 'warn_change_pass5.php'
-const HEADER_CLASS_URL = `${BASE}/publicphp/header_class5.php`
 
 export interface IccfProfile {
   /** Display name (e.g. 蔡喬淞) */
