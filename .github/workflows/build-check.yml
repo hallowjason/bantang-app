@@ -19,7 +19,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      - run: npm ci
+      # Use `npm install` instead of `npm ci` to pick up platform-specific
+      # optional deps (e.g. rolldown's linux-x64-gnu binding) that may be missing
+      # from a mac-generated lockfile.
+      - run: npm install --no-audit --no-fund
 
       - run: npm run lint
 

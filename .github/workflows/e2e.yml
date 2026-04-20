@@ -27,11 +27,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # Use `npm install` instead of `npm ci` to pick up platform-specific
+      # optional deps (e.g. rolldown's linux-x64-gnu binding) that may be missing
+      # from a mac-generated lockfile.
       - name: Install root deps
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Install server deps
-        run: npm --prefix server ci
+        run: npm --prefix server install --no-audit --no-fund
 
       - name: Install Playwright browsers (chromium only)
         run: npx playwright install --with-deps chromium
