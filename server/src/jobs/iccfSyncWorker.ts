@@ -32,6 +32,17 @@ const jobs = new Map<string, IccfSyncJob>()
 
 const JOB_TTL_MS = 60 * 60 * 1000
 
+/** Find an in-flight job (pending/processing) for the same (classId, date). */
+export function findInFlightJob(classId: string, date: string): IccfSyncJob | null {
+  for (const job of jobs.values()) {
+    if (job.classId === classId && job.date === date &&
+        (job.status === 'pending' || job.status === 'processing')) {
+      return job
+    }
+  }
+  return null
+}
+
 export function createSyncJob(params: {
   classId: string
   classCode: string
@@ -40,6 +51,11 @@ export function createSyncJob(params: {
   sessionId: string
   presentMemberNames: string[]
 }): IccfSyncJob {
+  // Race-guard: if another job for the same (classId, date) is still in flight,
+  // return that job instead of dispatching a duplicate worker run.
+  const inFlight = findInFlightJob(params.classId, params.date)
+  if (inFlight) return inFlight
+
   const now = new Date()
   const job: IccfSyncJob = {
     jobId: randomUUID(),

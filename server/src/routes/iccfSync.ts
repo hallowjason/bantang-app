@@ -31,6 +31,15 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     return
   }
 
+  // Ownership check: the caller must be a member/leader of this class.
+  // Admins (head_leader / class_master) may sync any class.
+  const role = req.user?.role
+  const isAdmin = role === 'head_leader' || role === 'class_master'
+  if (!isAdmin && req.user?.classId !== classId) {
+    res.status(403).json({ success: false, error: '無權同步此班' })
+    return
+  }
+
   const trimmedTopic = topicName?.trim() ?? ''
   if (!trimmedTopic) {
     res.status(400).json({
