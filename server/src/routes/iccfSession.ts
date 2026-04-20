@@ -9,6 +9,8 @@ import {
   touchSession,
 } from '../iccf/sessionStore'
 import { IccfError, isIccfError } from '../iccf/errors'
+import { getDB } from '../db'
+import type { AppUser, Class } from '../types'
 
 const router = Router()
 
@@ -45,7 +47,18 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     try {
       classes = await listClasses(cookieJar)
     } catch {
-      // Non-fatal: sync will still work if class_code can't be discovered
+      // Non-fatal
+    }
+
+    // Auto-populate iccfClassCode into the leader's class document so sync works
+    // on first login without manual admin setup.
+    const classesWithCode = classes.filter(
+      (c): c is typeof c & { iccfClassCode: string } => !!c.iccfClassCode,
+    )
+    if (classesWithCode.length > 0) {
+      await backfillIccfClassCode(leaderUid, classesWithCode).catch(() => {
+        // Non-fatal: sync will still fail clearly if class doc is missing the code
+      })
     }
 
     const record = await createSession({
@@ -145,5 +158,61 @@ router.post('/:sessionId/touch', async (req: AuthenticatedRequest, res: Response
   await touchSession(sessionId)
   res.json({ success: true, data: { expiresAt: session.expiresAt } })
 })
+
+/**
+ * After a successful iccf login, write the discovered B-number(s) back to the
+ * `classes` collection so sync works without manual admin setup.
+ *
+ * Strategy:
+ *  - Look up the leader's classId from the users collection.
+ *  - If exactly one iccf class was discovered → write its iccfClassCode to the
+ *    leader's app class (only when not already set or when the value changed).
+ *  - If multiple iccf classes were discovered → match each by iccfClassCode
+ *    against existing class documents and update any that are missing the code.
+ */
+async function backfillIccfClassCode(
+  leaderUid: string,
+  discovered: Array<{ classCode: string; iccfClassCode: string; className: string }>,
+): Promise<void> {
+  const db = getDB()
+
+  if (discovered.length === 1) {
+    // Single class: write to the leader's own app class
+    const user = await db.collection<AppUser>('users').findOne({ _id: leaderUid })
+    if (!user?.classId) return
+
+    const existing = await db.collection<Class>('classes').findOne({ _id: user.classId })
+    if (!existing) return
+
+    if (existing.iccfClassCode === discovered[0].iccfClassCode) return
+
+    await db.collection<Class>('classes').updateOne(
+      { _id: user.classId },
+      { $set: { iccfClassCode: discovered[0].iccfClassCode } },
+    )
+    return
+  }
+
+  // Multiple classes: update any class doc that has a matching iccfClassCode already
+  // set (keep it fresh) OR that has no iccfClassCode but name matches.
+  for (const entry of discovered) {
+    const existing = await db.collection<Class>('classes').findOne({
+      iccfClassCode: entry.iccfClassCode,
+    })
+    if (existing) continue // already correct, nothing to do
+
+    // Try name-based match as a best-effort fallback
+    const byName = await db.collection<Class>('classes').findOne({
+      name: entry.className,
+      iccfClassCode: { $exists: false },
+    })
+    if (byName) {
+      await db.collection<Class>('classes').updateOne(
+        { _id: byName._id },
+        { $set: { iccfClassCode: entry.iccfClassCode } },
+      )
+    }
+  }
+}
 
 export default router
