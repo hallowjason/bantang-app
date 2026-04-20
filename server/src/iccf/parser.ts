@@ -98,8 +98,8 @@ export function parseClassList(html: string): Array<{ classCode: string; classNa
 // ─── Attendance types ─────────────────────────────────────
 
 export interface AttendanceSessionEntry {
-  dateLabel: string   // raw text shown on page, e.g. "115/04/20"
-  rocDate: string     // normalized ROC date "YYY/MM/DD"
+  dateLabel: string   // raw text shown on page, e.g. "2026/04/01" or "第10堂"
+  gregDate: string    // Gregorian date extracted from URL "YYYY-MM-DD"
   formUrl: string     // URL to the attendance form for this session
 }
 
@@ -111,36 +111,33 @@ export interface AttendanceMemberEntry {
 
 /**
  * Parse the session list on the class presence page.
- * Each session entry links to the actual attendance form.
+ * Each session entry links to show_present5.php with class_date=YYYY-MM-DD.
  *
- * Note: This is a best-effort parser. Keywords and link patterns
- * may need adjustment after observing real iccf HTML.
+ * Real iccf structure: links to show_present5.php?...&class_date=2026-04-01&seq=+10&...
  */
 export function parseAttendanceSessions(html: string): AttendanceSessionEntry[] {
   const $ = cheerio.load(html)
   const results: AttendanceSessionEntry[] = []
+  const seen = new Set<string>()
 
-  // iccf typically lists sessions as links containing ROC dates
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') ?? ''
     const text = $(el).text().replace(/\s+/g, ' ').trim()
 
-    // Look for links that point to the attendance form
-    if (!href.includes('class_pres') && !href.includes('pres5')) return
+    // Match links to the attendance form page
+    if (!href.includes('show_present5.php') && !href.includes('class_present')) return
 
-    // Try to extract a date pattern from the link text or URL
-    // ROC date patterns: "115/04/20" or "115年04月20日"
-    const dateMatch =
-      text.match(/(\d{2,3})[\/年](\d{1,2})[\/月](\d{1,2})/) ??
-      href.match(/(\d{2,3})[\/](\d{1,2})[\/](\d{1,2})/)
+    // Extract Gregorian date from URL param: class_date=YYYY-MM-DD
+    const gregMatch = href.match(/class_date=(\d{4}-\d{2}-\d{2})/)
+    if (!gregMatch) return
 
-    if (!dateMatch) return
-
-    const rocDate = `${dateMatch[1]}/${dateMatch[2].padStart(2, '0')}/${dateMatch[3].padStart(2, '0')}`
+    const gregDate = gregMatch[1]
+    if (seen.has(gregDate)) return
+    seen.add(gregDate)
 
     results.push({
-      dateLabel: text || rocDate,
-      rocDate,
+      dateLabel: text || gregDate,
+      gregDate,
       formUrl: href,
     })
   })
@@ -149,37 +146,32 @@ export function parseAttendanceSessions(html: string): AttendanceSessionEntry[] 
 }
 
 /**
- * Parse the attendance form page to extract member rows.
- * Each row should have the member's name and the form field to mark presence.
+ * Parse the attendance form page (show_present5.php) to extract member rows.
  *
- * Note: This is a best-effort parser. Field names and table structure
- * may need adjustment after observing real iccf HTML.
+ * Real iccf structure:
+ *   - Per-member name in hidden input: name[i] (e.g. name[0]="鍾旻翰")
+ *   - Attendance checkboxes: present_o[i]=O (出席), present_x[i]=X (缺席), present_a[i]=A (請假)
+ *   - Other hidden inputs: no_mem[i], class_no[i], section_name[i], present_org[i], etc.
  */
 export function parseAttendanceMemberList(html: string): AttendanceMemberEntry[] {
   const $ = cheerio.load(html)
   const results: AttendanceMemberEntry[] = []
 
-  // Common pattern: table rows with member name + checkbox/radio
-  $('tr').each((_, row) => {
-    const $row = $(row)
-    const nameCell = $row.find('td').first()
-    const name = nameCell.text().replace(/\s+/g, '').trim()
+  // name[i] hidden inputs give us member names indexed by i
+  $('input').each((_, el) => {
+    const fieldName = $(el).attr('name')?.trim() ?? ''
+    const value = $(el).attr('value')?.trim() ?? ''
+    const type = ($(el).attr('type') ?? '').toLowerCase()
 
-    if (!name || name.length < 2 || name.length > 5) return // skip non-name cells
+    if (type !== 'hidden' && type !== '') return
+    const m = fieldName.match(/^name\[(\d+)\]$/)
+    if (!m || !value) return
 
-    // Look for a checkbox or radio that marks presence
-    const checkbox = $row.find('input[type="checkbox"], input[type="radio"]')
-    if (checkbox.length === 0) return
-
-    const fieldName = checkbox.first().attr('name')
-    const fieldValue = checkbox.first().attr('value') ?? '1'
-
-    if (!fieldName) return
-
+    const i = parseInt(m[1])
     results.push({
-      name,
-      presentFieldName: fieldName,
-      presentFieldValue: fieldValue,
+      name: value,
+      presentFieldName: `present_o[${i}]`,
+      presentFieldValue: 'O',
     })
   })
 

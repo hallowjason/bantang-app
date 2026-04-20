@@ -299,29 +299,16 @@ export async function addMember(
 }
 
 /**
- * Convert Gregorian date string (YYYY-MM-DD) to ROC year format used by iccf.
- * e.g. "2026-04-20" → "115/04/20"
- */
-function toRocDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-')
-  const rocYear = parseInt(y) - 1911
-  return `${rocYear}/${m}/${d}`
-}
-
-/**
  * Mark attendance for a set of present members on iccf.
  *
  * Flow:
- * 1. Load the class presence page for the given classCode
+ * 1. Load the class presence selection page for the given classCode
  * 2. Find the session (班期) matching the given date
- * 3. Navigate to that session's attendance form
- * 4. Check the rows matching presentMemberNames and submit
- *
- * Note: This is best-effort. Keywords/selectors may need tuning after
- * observing real iccf HTML responses.
+ * 3. Navigate to that session's attendance form (show_present5.php)
+ * 4. Submit form_roll with present_o[i] checked for present members
  *
  * @param jar                - active session cookie jar
- * @param classCode          - sec_class code (e.g. "TWT019")
+ * @param classCode          - sec_class code (e.g. "TWC")
  * @param date               - YYYY-MM-DD format
  * @param presentMemberNames - names of members who are present
  */
@@ -332,7 +319,6 @@ export async function markAttendance(
   presentMemberNames: string[],
 ): Promise<MarkAttendanceResult> {
   const http = makeHttp(jar)
-  const rocDate = toRocDate(date)
 
   try {
     // Step 1: Load the class presence selection page
@@ -341,15 +327,17 @@ export async function markAttendance(
     const presRes = await http.get(presUrl)
     const presHtml = decodeBig5(presRes.data as Buffer)
 
-    // Step 2: Find the session entry matching our date
+    // Step 2: Find the session entry matching our date (YYYY-MM-DD)
     const sessions = parseAttendanceSessions(presHtml)
-    const targetSession = sessions.find(s => s.rocDate === rocDate || s.dateLabel.includes(rocDate))
+    const targetSession = sessions.find(
+      s => s.gregDate === date || s.dateLabel.includes(date),
+    )
 
     if (!targetSession) {
       return {
         marked: [],
         notFound: presentMemberNames,
-        error: `iccf 找不到日期 ${rocDate} 的班期（共 ${sessions.length} 筆）`,
+        error: `iccf 找不到日期 ${date} 的班期（共 ${sessions.length} 筆）`,
       }
     }
 
@@ -368,13 +356,17 @@ export async function markAttendance(
     const marked: string[] = []
     const notFound: string[] = [...presentMemberNames]
 
-    // Extract the form action and hidden inputs
+    // Extract form action from form_roll (not the first form which is form_chang_mbrtype)
     const $form = cheerio.load(formHtml)
-    const formAction = $form('form').first().attr('action') ?? formUrl
-    const submitUrl = formAction.startsWith('http')
-      ? formAction
-      : `${BASE}/${formAction.replace(/^\//, '')}`
+    const rollFormAction =
+      $form('form[name="form_roll"]').attr('action') ??
+      $form('form').last().attr('action') ??
+      'roll_call5.php'
+    const submitUrl = rollFormAction.startsWith('http')
+      ? rollFormAction
+      : `${BASE}/class_present/${rollFormAction.replace(/^\//, '')}`
 
+    // Collect all hidden inputs (includes class_no[i], no_mem[i], name[i], class_code, etc.)
     const hidden: Record<string, string> = {}
     $form('input[type="hidden"]').each((_, el) => {
       const n = $form(el).attr('name')
@@ -382,23 +374,20 @@ export async function markAttendance(
       if (n) hidden[n] = v
     })
 
-    // Build the form body: check the boxes for present members
+    // Build the form body: start with all hidden fields, then add present_o[i] for present members
     const formFields: Record<string, string> = { ...hidden }
 
     for (const member of members) {
-      if (presentSet.has(member.name)) {
-        // Mark as present — the field name and value depend on iccf form
-        if (member.presentFieldName) {
-          formFields[member.presentFieldName] = member.presentFieldValue ?? '1'
-        }
+      if (presentSet.has(member.name) && member.presentFieldName) {
+        formFields[member.presentFieldName] = member.presentFieldValue ?? 'O'
         marked.push(member.name)
         const idx = notFound.indexOf(member.name)
         if (idx !== -1) notFound.splice(idx, 1)
       }
     }
 
-    // Step 5: Submit the attendance form
-    const submitBody = buildBig5FormBody({ ...formFields, B1: '確認' })
+    // Step 5: Submit the attendance form (roll_call5.php)
+    const submitBody = buildBig5FormBody(formFields)
     await http.post(submitUrl, submitBody, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
