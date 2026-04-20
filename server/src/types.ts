@@ -36,6 +36,8 @@ export interface EtiquetteItem {
   isActive: boolean
 }
 
+export type IccfSyncStatus = 'pending' | 'synced' | 'not_found' | 'name_mismatch' | 'duplicate' | 'forbidden' | 'error'
+
 export interface Member {
   _id: string
   name: string
@@ -48,6 +50,10 @@ export interface Member {
   notes: string
   createdAt: string
   createdBy: string
+  iccfStatus?: IccfSyncStatus
+  iccfMemberId?: string
+  iccfSyncedAt?: string
+  iccfLastError?: string
 }
 
 export interface ClassMember {

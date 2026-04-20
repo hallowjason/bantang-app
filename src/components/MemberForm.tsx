@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { addMember, updateMember } from '../lib/api/members'
+import { addMember, updateMember, type IccfSyncResult } from '../lib/api/members'
+import { iccfGetCurrentSessions, type IccfLoginResult, type IccfSessionInfo } from '../lib/api/iccfSession'
 import { getRegionUnits, getEtiquetteItems, addRegionUnit } from '../lib/api/settings'
+import IccfLoginModal from './IccfLoginModal'
 import type { Member, EtiquetteItem, EtiquetteStatus } from '../types'
 
 // ─── 狀態設定 ─────────────────────────────────────────────
@@ -24,6 +26,7 @@ const STATUS_ORDER: StatusOption[] = ['none', 'preparing', 'failed', 'passed']
 
 interface Props {
   classId: string
+  iccfClassCode?: string   // e.g. "TWT019" — if provided, triggers iccf 補入 on create
   member?: Member          // 有值 → 編輯；undefined → 新增
   onClose: () => void
   onSaved: () => void
@@ -50,7 +53,7 @@ const inputCls = 'border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outl
 
 // ─── 主元件 ───────────────────────────────────────────────
 
-export default function MemberForm({ classId, member, onClose, onSaved }: Props) {
+export default function MemberForm({ classId, iccfClassCode, member, onClose, onSaved }: Props) {
   const { user } = useAuth()
 
   // 基本資料
@@ -77,6 +80,12 @@ export default function MemberForm({ classId, member, onClose, onSaved }: Props)
   const [etiquetteItems, setEtiquetteItems] = useState<EtiquetteItem[]>([])
   const [settingsLoading, setSettingsLoading] = useState(true)
 
+  // iccf session
+  const [iccfSession, setIccfSession]         = useState<IccfSessionInfo | null>(null)
+  const [showIccfLogin, setShowIccfLogin]     = useState(false)
+  const [iccfResult, setIccfResult]           = useState<IccfSyncResult | null>(null)
+  const [pendingSubmit, setPendingSubmit]     = useState(false)
+
   // 狀態
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState<string | null>(null)
@@ -90,6 +99,16 @@ export default function MemberForm({ classId, member, onClose, onSaved }: Props)
       .finally(() => setSettingsLoading(false))
   }, [])
 
+  // Load existing iccf session if we're in create-with-iccf mode
+  useEffect(() => {
+    if (!iccfClassCode || member) return
+    iccfGetCurrentSessions()
+      .then(sessions => {
+        if (sessions.length > 0) setIccfSession(sessions[0])
+      })
+      .catch(() => { /* non-critical */ })
+  }, [iccfClassCode, member])
+
 
   const setEtiquetteStatus = (itemId: string, status: StatusOption) => {
     setEtiquetteStatuses(prev => {
@@ -101,52 +120,102 @@ export default function MemberForm({ classId, member, onClose, onSaved }: Props)
     })
   }
 
-  // ── 送出 ──
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name.trim()) { setError('請輸入姓名'); return }
-
+  const buildMemberData = (): Omit<Member, 'id'> => {
     const m = month ? String(month).padStart(2, '0') : ''
     const d = day   ? String(day).padStart(2, '0')   : ''
-    const birthday = m && d ? `${m}-${d}` : ''
-
-    const finalRegionUnit = customRegion ? customRegionVal.trim() : regionUnit
-
-    const memberData: Omit<Member, 'id'> = {
+    return {
       name:                   name.trim(),
-      birthday,
+      birthday:               m && d ? `${m}-${d}` : '',
       initialAttendanceCount: Math.max(0, parseInt(initialCount) || 0),
       mentor:                 mentor.trim(),
-      regionUnit:             finalRegionUnit,
+      regionUnit:             customRegion ? customRegionVal.trim() : regionUnit,
       regionNumber:           regionNumber.trim(),
       etiquetteItems:         etiquetteStatuses,
       notes,
       createdAt:              member?.createdAt ?? new Date().toISOString().slice(0, 10),
       createdBy:              member?.createdBy ?? (user?.uid ?? ''),
     }
+  }
 
+  const doSave = async (sessionId?: string) => {
+    const memberData = buildMemberData()
     setSaving(true)
     setError(null)
+    setIccfResult(null)
     try {
       if (customRegion && customRegionVal.trim()) {
         await addRegionUnit(customRegionVal.trim())
       }
       if (member) {
         await updateMember(member.id, memberData)
+        onSaved()
       } else {
-        await addMember(memberData, classId, user?.uid ?? '')
+        const iccfOptions = sessionId && iccfClassCode
+          ? { sessionId, classCode: iccfClassCode }
+          : undefined
+        const result = await addMember(memberData, classId, user?.uid ?? '', iccfOptions)
+        if (result.iccf) {
+          setIccfResult(result.iccf)
+          if (result.iccf.status === 'synced') {
+            setTimeout(onSaved, 1500)
+          }
+          // For non-synced, stay open so user can see the error
+        } else {
+          onSaved()
+        }
       }
-      onSaved()
     } catch (err) {
       setError('儲存失敗，請再試一次')
-      console.error(err)
     } finally {
       setSaving(false)
+      setPendingSubmit(false)
+    }
+  }
+
+  // ── 送出 ──
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) { setError('請輸入姓名'); return }
+
+    // New member + iccf enabled: ensure session exists
+    if (!member && iccfClassCode) {
+      if (!iccfSession) {
+        setPendingSubmit(true)
+        setShowIccfLogin(true)
+        return
+      }
+      await doSave(iccfSession.sessionId)
+      return
+    }
+
+    await doSave()
+  }
+
+  const handleIccfLoginSuccess = async (result: IccfLoginResult) => {
+    setShowIccfLogin(false)
+    const sessionInfo: IccfSessionInfo = {
+      sessionId: result.sessionId,
+      iccfAccount: '',
+      profile: result.profile,
+      classes: result.classes,
+      lastUsedAt: new Date().toISOString(),
+      expiresAt: result.expiresAt,
+    }
+    setIccfSession(sessionInfo)
+    if (pendingSubmit) {
+      await doSave(result.sessionId)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40" onClick={onClose}>
+    <>
+    {showIccfLogin && (
+      <IccfLoginModal
+        onSuccess={handleIccfLoginSuccess}
+        onCancel={() => { setShowIccfLogin(false); setPendingSubmit(false) }}
+      />
+    )}
+    <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/40" onClick={onClose}>
       <div
         className="bg-white rounded-t-3xl px-5 pt-4 pb-10 flex flex-col gap-5 max-h-[92vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
@@ -156,6 +225,42 @@ export default function MemberForm({ classId, member, onClose, onSaved }: Props)
         <h2 className="text-lg font-bold text-gray-800 shrink-0">
           {member ? '編輯班員' : '新增班員'}
         </h2>
+
+        {/* iccf session 狀態列 */}
+        {!member && iccfClassCode && (
+          <div className="flex items-center gap-2 text-xs shrink-0">
+            {iccfSession ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                <span className="text-gray-500">
+                  iccf 已登入（{iccfSession.profile?.name ?? iccfSession.iccfAccount}）
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-2 h-2 rounded-full bg-gray-300 shrink-0" />
+                <span className="text-gray-400">儲存時將要求登入 iccf 以完成補入</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* iccf 同步結果 */}
+        {iccfResult && (
+          <div className={`text-xs rounded-xl px-4 py-3 shrink-0 ${
+            iccfResult.status === 'synced'
+              ? 'bg-green-50 text-green-700 border border-green-200'
+              : 'bg-amber-50 text-amber-700 border border-amber-200'
+          }`}>
+            {iccfResult.status === 'synced'
+              ? `✓ iccf 補入成功${iccfResult.iccfMemberId ? `（ID: ${iccfResult.iccfMemberId}）` : ''}`
+              : `⚠ iccf 補入未完成：${iccfResult.message ?? iccfResult.status}`
+            }
+            {iccfResult.status !== 'synced' && (
+              <p className="mt-1 text-amber-600">班員已建立，請手動至 iccf 補入。</p>
+            )}
+          </div>
+        )}
 
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2 shrink-0">
@@ -290,5 +395,6 @@ export default function MemberForm({ classId, member, onClose, onSaved }: Props)
         </form>
       </div>
     </div>
+    </>
   )
 }

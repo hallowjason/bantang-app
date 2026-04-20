@@ -45,6 +45,17 @@ export interface EtiquetteItem {
   isActive: boolean
 }
 
+// ─── iccf 同步狀態 ────────────────────────────────────────
+
+export type IccfSyncStatus =
+  | 'pending'
+  | 'synced'
+  | 'not_found'
+  | 'name_mismatch'
+  | 'duplicate'
+  | 'forbidden'
+  | 'error'
+
 // ─── /members/{memberId}（不綁定班級） ────────────────────
 
 export interface Member {
@@ -59,6 +70,10 @@ export interface Member {
   notes: string
   createdAt: string
   createdBy: string
+  iccfStatus?: IccfSyncStatus
+  iccfMemberId?: string
+  iccfSyncedAt?: string
+  iccfLastError?: string
 }
 
 // ─── /class_members/{classId}/members/{memberId} ─────────

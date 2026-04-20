@@ -2,8 +2,11 @@ import axios, { AxiosInstance } from 'axios'
 import { wrapper } from 'axios-cookiejar-support'
 import { CookieJar } from 'tough-cookie'
 import * as cheerio from 'cheerio'
-import { buildBig5FormBody, decodeBig5 } from './encoding'
+import { buildBig5FormBody, encodeBig5URIComponent, decodeBig5 } from './encoding'
 import { IccfError } from './errors'
+import { parseAddMemberResult, parseClassList, type AddMemberResult } from './parser'
+
+export type { AddMemberResult }
 
 const BASE = 'https://iccf.ikd.org.tw'
 const LOGIN_URL = `${BASE}/55index.php`
@@ -161,24 +164,119 @@ export async function ping(jar: CookieJar): Promise<boolean> {
 
 /**
  * Fetch the list of classes the logged-in leader can operate on.
- * NOTE: Phase 1 returns raw menu links; Phase 2 will refine parsing once
- * we understand the actual class list endpoint for this user.
  */
 export async function listClasses(jar: CookieJar): Promise<IccfClassEntry[]> {
   const http = makeHttp(jar)
   const res = await http.get('/publicphp/header_class5.php?title3=' + encodeURIComponent('班期'))
   const html = decodeBig5(res.data as Buffer)
+  return parseClassList(html)
+}
 
-  // Extract sec_class param from menu links — leader's operable class codes
-  const classCodes = new Set<string>()
-  const regex = /sec_class=([A-Z0-9]+)/g
-  let m: RegExpExecArray | null
-  while ((m = regex.exec(html)) !== null) {
-    classCodes.add(m[1])
+/**
+ * Add a member to an iccf class via the 補入 flow.
+ *
+ * The iccf add-member form is a two-step process:
+ *  1. POST search form with name + area → get result list
+ *  2. If exactly one match, POST confirmation → get success page
+ *
+ * We attempt to auto-select when exactly one result is returned.
+ * If multiple or zero results, we map to the appropriate IccfSyncStatus.
+ *
+ * @param jar       - active session cookie jar
+ * @param name      - member's full name (UTF-8, encoded to Big5 internally)
+ * @param area      - member's region/area string (e.g. "精明019 區")
+ * @param classCode - sec_class code (e.g. "TWT019")
+ */
+export async function addMember(
+  jar: CookieJar,
+  name: string,
+  area: string,
+  classCode: string,
+): Promise<AddMemberResult> {
+  const http = makeHttp(jar)
+
+  try {
+    // Step 1: Load the add-member search form for this class
+    const formUrl =
+      `/classmbr/add_classmbr_first5.php` +
+      `?label=add&class_code_head=&class_close=1&first=T&sec_class=${encodeBig5URIComponent(classCode)}`
+
+    const formRes = await http.get(formUrl)
+    const formHtml = decodeBig5(formRes.data as Buffer)
+
+    // Extract hidden inputs from the search form
+    const $form = cheerio.load(formHtml)
+    const hidden: Record<string, string> = {}
+    $form('input[type="hidden"]').each((_, el) => {
+      const n = $form(el).attr('name')
+      const v = $form(el).attr('value') ?? ''
+      if (n) hidden[n] = v
+    })
+
+    // Determine the search action URL
+    const actionRaw = $form('form').first().attr('action') ?? formUrl
+    const actionUrl = actionRaw.startsWith('http') ? actionRaw : `${BASE}/${actionRaw.replace(/^\//, '')}`
+
+    // Step 2: Submit search with member name and area
+    const searchBody = buildBig5FormBody({
+      ...hidden,
+      mbr_name: name,
+      area_unit: area,
+      label: 'search',
+      sec_class: classCode,
+      B1: '查詢',
+    })
+
+    const searchRes = await http.post(actionUrl, searchBody, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Referer: `${BASE}${formUrl}`,
+      },
+    })
+    const searchHtml = decodeBig5(searchRes.data as Buffer)
+
+    // Parse preliminary result
+    const preliminary = parseAddMemberResult(searchHtml)
+
+    // If already synced, duplicate, not_found, forbidden, error — return immediately
+    if (preliminary.status !== 'name_mismatch') {
+      return preliminary
+    }
+
+    // name_mismatch means search result list was shown.
+    // Attempt to auto-select if exactly one row matches the name.
+    const $search = cheerio.load(searchHtml)
+    const confirmLinks: string[] = []
+    $search('a[href]').each((_, el) => {
+      const href = $search(el).attr('href') ?? ''
+      if (href.includes('add_classmbr') && href.includes('mbr_id=')) {
+        confirmLinks.push(href)
+      }
+    })
+
+    if (confirmLinks.length === 0) {
+      return { status: 'not_found', message: 'iccf 查無符合班員' }
+    }
+
+    if (confirmLinks.length > 1) {
+      return {
+        status: 'name_mismatch',
+        message: `iccf 找到 ${confirmLinks.length} 筆符合，請手動確認補入`,
+      }
+    }
+
+    // Exactly one match — follow the confirm link
+    const confirmHref = confirmLinks[0]
+    const confirmUrl = confirmHref.startsWith('http')
+      ? confirmHref
+      : `${BASE}/${confirmHref.replace(/^\//, '')}`
+
+    const confirmRes = await http.get(confirmUrl)
+    const confirmHtml = decodeBig5(confirmRes.data as Buffer)
+
+    return parseAddMemberResult(confirmHtml)
+  } catch (e) {
+    if (e instanceof IccfError) throw e
+    throw new IccfError('network_error', `iccf 補入失敗: ${(e as Error).message}`, e)
   }
-
-  return Array.from(classCodes).map((code) => ({
-    classCode: code,
-    className: code, // Phase 2 will resolve the human-readable name
-  }))
 }

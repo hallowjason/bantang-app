@@ -3,6 +3,8 @@ import { ObjectId } from 'mongodb'
 import { getDB } from '../db'
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
 import type { Member, ClassMember, Attendance, Class } from '../types'
+import { getSession, touchSession } from '../iccf/sessionStore'
+import { addMember as iccfAddMember } from '../iccf/client'
 
 interface ClassMemberWithName extends ClassMember {
   className: string
@@ -54,7 +56,11 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 // ─── POST /api/members ───────────────────────────────────────────────────────
 
 router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { classId, ...memberData } = req.body as Omit<Member, '_id'> & { classId: string }
+  const { classId, iccfSessionId, iccfClassCode, ...memberData } = req.body as Omit<Member, '_id'> & {
+    classId: string
+    iccfSessionId?: string
+    iccfClassCode?: string
+  }
   if (!classId) {
     res.status(400).json({ success: false, error: 'classId is required' })
     return
@@ -77,7 +83,43 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
   }
   await db.collection<ClassMember>('class_members').insertOne(classMember)
 
-  res.json({ success: true, data: { id: memberId } })
+  // iccf 補入（非同步，不阻斷建立流程）
+  let iccfResult: { status: string; iccfMemberId?: string; message?: string } | null = null
+
+  if (iccfSessionId && iccfClassCode) {
+    const session = await getSession(iccfSessionId)
+    if (!session) {
+      iccfResult = { status: 'error', message: 'iccf session 不存在或已過期，請重新登入' }
+    } else {
+      try {
+        const r = await iccfAddMember(
+          session.cookieJar,
+          newMember.name,
+          newMember.regionUnit,
+          iccfClassCode,
+        )
+        iccfResult = r
+
+        const iccfUpdate: Partial<Member> = {
+          iccfStatus: r.status === 'synced' ? 'synced' : r.status as Member['iccfStatus'],
+          iccfSyncedAt: new Date().toISOString(),
+          iccfLastError: r.status !== 'synced' ? r.message : undefined,
+        }
+        if (r.iccfMemberId) iccfUpdate.iccfMemberId = r.iccfMemberId
+
+        await db.collection<Member>('members').updateOne({ _id: memberId }, { $set: iccfUpdate })
+        await touchSession(iccfSessionId)
+      } catch (err) {
+        iccfResult = { status: 'error', message: (err as Error).message }
+        await db.collection<Member>('members').updateOne(
+          { _id: memberId },
+          { $set: { iccfStatus: 'error', iccfLastError: (err as Error).message } },
+        )
+      }
+    }
+  }
+
+  res.json({ success: true, data: { id: memberId, iccf: iccfResult } })
 })
 
 // ─── PUT /api/members/:id ────────────────────────────────────────────────────
@@ -190,6 +232,10 @@ function toMemberDto(m: Member) {
     notes: m.notes,
     createdAt: m.createdAt,
     createdBy: m.createdBy,
+    iccfStatus: m.iccfStatus,
+    iccfMemberId: m.iccfMemberId,
+    iccfSyncedAt: m.iccfSyncedAt,
+    iccfLastError: m.iccfLastError,
   }
 }
 

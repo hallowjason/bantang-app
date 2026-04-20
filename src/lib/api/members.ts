@@ -13,13 +13,25 @@ export async function getMemberById(memberId: string): Promise<Member | null> {
   }
 }
 
+export interface IccfSyncResult {
+  status: string
+  iccfMemberId?: string
+  message?: string
+}
+
 export async function addMember(
   data: Omit<Member, 'id'>,
   classId: string,
   _userId: string,
-): Promise<string> {
-  const result = await apiPost<{ id: string }>('/api/members', { ...data, classId })
-  return result.id
+  iccfOptions?: { sessionId: string; classCode: string },
+): Promise<{ id: string; iccf: IccfSyncResult | null }> {
+  const body: Record<string, unknown> = { ...data, classId }
+  if (iccfOptions) {
+    body.iccfSessionId = iccfOptions.sessionId
+    body.iccfClassCode = iccfOptions.classCode
+  }
+  const result = await apiPost<{ id: string; iccf: IccfSyncResult | null }>('/api/members', body)
+  return result
 }
 
 export async function updateMember(
