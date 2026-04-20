@@ -1,6 +1,8 @@
 import { randomUUID } from 'crypto'
 import { ensureAlive } from '../iccf/ensureAlive'
 import { markAttendance, type MarkAttendanceResult } from '../iccf/client'
+import { getDB } from '../db'
+import type { Session } from '../types'
 
 export type SyncJobErrorCode = 'session_expired' | 'network_error' | 'unknown'
 
@@ -30,6 +32,17 @@ const jobs = new Map<string, IccfSyncJob>()
 
 const JOB_TTL_MS = 60 * 60 * 1000
 
+/** Find an in-flight job (pending/processing) for the same (classId, date). */
+export function findInFlightJob(classId: string, date: string): IccfSyncJob | null {
+  for (const job of jobs.values()) {
+    if (job.classId === classId && job.date === date &&
+        (job.status === 'pending' || job.status === 'processing')) {
+      return job
+    }
+  }
+  return null
+}
+
 export function createSyncJob(params: {
   classId: string
   classCode: string
@@ -38,6 +51,11 @@ export function createSyncJob(params: {
   sessionId: string
   presentMemberNames: string[]
 }): IccfSyncJob {
+  // Race-guard: if another job for the same (classId, date) is still in flight,
+  // return that job instead of dispatching a duplicate worker run.
+  const inFlight = findInFlightJob(params.classId, params.date)
+  if (inFlight) return inFlight
+
   const now = new Date()
   const job: IccfSyncJob = {
     jobId: randomUUID(),
@@ -99,6 +117,19 @@ async function processJob(jobId: string): Promise<void> {
     job.status = result.error ? 'failed' : 'done'
     job.error = result.error
     job.updatedAt = new Date()
+
+    // Persist successful sync on the Session doc so subsequent /api/iccf/sync
+    // calls for this (classId, date) can guard against duplicate submissions.
+    if (job.status === 'done') {
+      try {
+        await getDB().collection<Session>('sessions').updateOne(
+          { _id: `${job.classId}_${job.date}` },
+          { $set: { iccfSyncedAt: new Date().toISOString(), iccfSyncJobId: job.jobId } },
+        )
+      } catch {
+        // Non-fatal — dup guard will simply not fire next time
+      }
+    }
   } catch (e) {
     job.status = 'failed'
     job.error = (e as Error).message

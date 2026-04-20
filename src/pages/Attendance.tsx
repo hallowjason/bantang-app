@@ -230,15 +230,25 @@ export default function Attendance() {
   }
 
   // Trigger iccf sync job after finalize. Can be called standalone on session-expired retry.
-  const triggerIccfSync = async (sessionId: string, topicName: string) => {
+  const triggerIccfSync = async (sessionId: string, topicName: string, force = false) => {
     if (!user?.classId) return
     try {
-      const resp = await createIccfSyncJob({ classId: user.classId, date, sessionId, topicName })
+      const resp = await createIccfSyncJob({ classId: user.classId, date, sessionId, topicName, force })
       if (resp.sessionExpired) {
         // Session died between login and sync — ask to re-login, then retry just the sync
         setIccfSession(null)
         setPendingIccfSync({ topicName })
         setShowIccfLogin(true)
+        return
+      }
+      if (resp.alreadySynced) {
+        const syncedAt = resp.iccfSyncedAt ? new Date(resp.iccfSyncedAt).toLocaleString() : ''
+        const confirmed = window.confirm(
+          `此班期已於 ${syncedAt} 同步過 iccf。\n確定要重新送出嗎？會再次寫入 iccf 點名與設定課程。`,
+        )
+        if (confirmed) {
+          await triggerIccfSync(sessionId, topicName, true)
+        }
         return
       }
       if (resp.jobId) {

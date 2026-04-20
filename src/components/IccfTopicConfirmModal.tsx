@@ -9,6 +9,8 @@ interface Props {
 
 export default function IccfTopicConfirmModal({ defaultTopic, date, onConfirm, onCancel }: Props) {
   const [topic, setTopic] = useState(defaultTopic)
+  const trimmed = topic.trim()
+  const canConfirm = trimmed.length > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -26,7 +28,9 @@ export default function IccfTopicConfirmModal({ defaultTopic, date, onConfirm, o
             className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
             autoFocus
           />
-          <p className="text-xs text-gray-400">將填入 iccf 設定課程的「備註」欄位</p>
+          <p className={`text-xs ${canConfirm ? 'text-gray-400' : 'text-red-500'}`}>
+            {canConfirm ? '將填入 iccf 設定課程的「備註」欄位' : '課程名稱必填，留空會清除 iccf 備註'}
+          </p>
         </div>
 
         <div className="flex gap-2 pt-1">
@@ -37,8 +41,9 @@ export default function IccfTopicConfirmModal({ defaultTopic, date, onConfirm, o
             取消
           </button>
           <button
-            onClick={() => onConfirm(topic.trim())}
-            className="flex-1 py-2.5 rounded-xl bg-amber-700 text-white text-sm font-semibold hover:bg-amber-800 active:scale-[0.98] transition-all shadow-sm"
+            onClick={() => canConfirm && onConfirm(trimmed)}
+            disabled={!canConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-amber-700 text-white text-sm font-semibold hover:bg-amber-800 active:scale-[0.98] transition-all shadow-sm disabled:bg-gray-300 disabled:active:scale-100"
           >
             確認同步
           </button>

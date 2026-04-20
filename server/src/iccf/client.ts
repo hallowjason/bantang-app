@@ -356,10 +356,14 @@ export async function markAttendance(
     const target = courseSessions.find(s => s.gregDate === date)
 
     if (!target) {
+      const available = courseSessions.map(s => s.gregDate).filter(Boolean)
+      const suffix = available.length > 0
+        ? `；iccf 可用日期：${available.slice(0, 5).join(', ')}${available.length > 5 ? ' …' : ''}`
+        : '；iccf 回傳 0 筆班期，請確認此班在 iccf 已排課'
       return {
         marked: [],
         notFound: presentMemberNames,
-        error: `iccf 找不到日期 ${date} 的班期（共 ${courseSessions.length} 筆）`,
+        error: `iccf 找不到日期 ${date} 的班期${suffix}`,
       }
     }
 
@@ -433,12 +437,21 @@ export async function markAttendance(
     }
 
     const submitBody = buildBig5FormBody(formFields)
-    await http.post(submitUrl, submitBody, {
+    const submitRes = await http.post(submitUrl, submitBody, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         Referer: attendanceUrl,
       },
     })
+
+    // Parse response for iccf error indicators. On success, iccf typically
+    // redirects or returns a confirmation page. On error, it renders an alert
+    // or a login page (session died mid-request).
+    const submitHtml = decodeBig5(submitRes.data as Buffer)
+    const responseError = detectRollCallError(submitHtml)
+    if (responseError) {
+      return { marked, notFound, error: responseError }
+    }
 
     return { marked, notFound }
   } catch (e) {
@@ -446,6 +459,29 @@ export async function markAttendance(
     const msg = `iccf 點名失敗: ${(e as Error).message}`
     return { marked: [], notFound: presentMemberNames, error: msg }
   }
+}
+
+/**
+ * Detect error messages in the roll_call5.php response HTML.
+ * Returns a user-facing error string, or null if no error detected.
+ */
+function detectRollCallError(html: string): string | null {
+  // Session died mid-request → redirected to login page
+  if (html.includes('f_login') || html.includes('name=zant')) {
+    return 'iccf session 在送出前過期，點名未寫入，請重新登入後重試'
+  }
+
+  // iccf sometimes uses JS alert() for errors. Only flag if the alert message
+  // looks like an error (contains 錯誤/失敗/無法 — navigation labels don't).
+  const alertMatch = html.match(/alert\s*\(\s*['"]([^'"]{2,200})['"]\s*\)/)
+  if (alertMatch) {
+    const msg = alertMatch[1].trim()
+    if (/錯誤|失敗|無法|請|重新/.test(msg)) {
+      return `iccf 回應錯誤：${msg}`
+    }
+  }
+
+  return null
 }
 
 /** Resolve a possibly-relative URL against a base URL. */
