@@ -94,3 +94,94 @@ export function parseClassList(html: string): Array<{ classCode: string; classNa
 
   return results
 }
+
+// ─── Attendance types ─────────────────────────────────────
+
+export interface AttendanceSessionEntry {
+  dateLabel: string   // raw text shown on page, e.g. "115/04/20"
+  rocDate: string     // normalized ROC date "YYY/MM/DD"
+  formUrl: string     // URL to the attendance form for this session
+}
+
+export interface AttendanceMemberEntry {
+  name: string
+  presentFieldName?: string    // form input name for marking present
+  presentFieldValue?: string   // value to submit when marking present
+}
+
+/**
+ * Parse the session list on the class presence page.
+ * Each session entry links to the actual attendance form.
+ *
+ * Note: This is a best-effort parser. Keywords and link patterns
+ * may need adjustment after observing real iccf HTML.
+ */
+export function parseAttendanceSessions(html: string): AttendanceSessionEntry[] {
+  const $ = cheerio.load(html)
+  const results: AttendanceSessionEntry[] = []
+
+  // iccf typically lists sessions as links containing ROC dates
+  $('a[href]').each((_, el) => {
+    const href = $(el).attr('href') ?? ''
+    const text = $(el).text().replace(/\s+/g, ' ').trim()
+
+    // Look for links that point to the attendance form
+    if (!href.includes('class_pres') && !href.includes('pres5')) return
+
+    // Try to extract a date pattern from the link text or URL
+    // ROC date patterns: "115/04/20" or "115年04月20日"
+    const dateMatch =
+      text.match(/(\d{2,3})[\/年](\d{1,2})[\/月](\d{1,2})/) ??
+      href.match(/(\d{2,3})[\/](\d{1,2})[\/](\d{1,2})/)
+
+    if (!dateMatch) return
+
+    const rocDate = `${dateMatch[1]}/${dateMatch[2].padStart(2, '0')}/${dateMatch[3].padStart(2, '0')}`
+
+    results.push({
+      dateLabel: text || rocDate,
+      rocDate,
+      formUrl: href,
+    })
+  })
+
+  return results
+}
+
+/**
+ * Parse the attendance form page to extract member rows.
+ * Each row should have the member's name and the form field to mark presence.
+ *
+ * Note: This is a best-effort parser. Field names and table structure
+ * may need adjustment after observing real iccf HTML.
+ */
+export function parseAttendanceMemberList(html: string): AttendanceMemberEntry[] {
+  const $ = cheerio.load(html)
+  const results: AttendanceMemberEntry[] = []
+
+  // Common pattern: table rows with member name + checkbox/radio
+  $('tr').each((_, row) => {
+    const $row = $(row)
+    const nameCell = $row.find('td').first()
+    const name = nameCell.text().replace(/\s+/g, '').trim()
+
+    if (!name || name.length < 2 || name.length > 5) return // skip non-name cells
+
+    // Look for a checkbox or radio that marks presence
+    const checkbox = $row.find('input[type="checkbox"], input[type="radio"]')
+    if (checkbox.length === 0) return
+
+    const fieldName = checkbox.first().attr('name')
+    const fieldValue = checkbox.first().attr('value') ?? '1'
+
+    if (!fieldName) return
+
+    results.push({
+      name,
+      presentFieldName: fieldName,
+      presentFieldValue: fieldValue,
+    })
+  })
+
+  return results
+}

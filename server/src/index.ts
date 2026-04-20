@@ -15,7 +15,9 @@ import portalRouter from './routes/portal'
 import uploadRouter from './routes/upload'
 import scheduleCacheRouter from './routes/scheduleCache'
 import iccfSessionRouter from './routes/iccfSession'
+import iccfSyncRouter from './routes/iccfSync'
 import { ensureSessionIndexes, sweepExpiredMemory } from './iccf/sessionStore'
+import { sweepOldJobs } from './jobs/iccfSyncWorker'
 
 const app = express()
 const PORT = process.env.PORT ?? 3000
@@ -48,6 +50,7 @@ app.use('/api', portalRouter)       // venues, events, event-responses
 app.use('/api/upload', uploadRouter)
 app.use('/api/schedule-cache', scheduleCacheRouter)
 app.use('/api/iccf/session', iccfSessionRouter)
+app.use('/api/iccf/sync', iccfSyncRouter)
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 
@@ -58,6 +61,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }))
 connectDB().then(async () => {
   await ensureSessionIndexes()
   setInterval(sweepExpiredMemory, 5 * 60 * 1000)
+  setInterval(sweepOldJobs, 30 * 60 * 1000)
   app.listen(PORT, () => {
     console.log(`bantang-server listening on port ${PORT}`)
   })

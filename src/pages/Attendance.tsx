@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getMembers } from '../lib/api/members'
+import { getMembers, getClassInfo } from '../lib/api/members'
 import {
   subscribeToClassAttendance,
   setAttendanceRecord,
@@ -12,6 +12,9 @@ import {
   reopenSession,
   subscribeToSession,
 } from '../lib/api/sessions'
+import { iccfGetCurrentSessions, type IccfLoginResult, type IccfSessionInfo } from '../lib/api/iccfSession'
+import { createIccfSyncJob, pollIccfSyncJob, type SyncJob } from '../lib/api/iccfSync'
+import IccfLoginModal from '../components/IccfLoginModal'
 import type { Member, Attendance, Session, AttendanceStatus } from '../types'
 
 // ─── 出席三態循環定義 ─────────────────────────────────────
@@ -60,11 +63,19 @@ export default function Attendance() {
 
   const [date, setDate]                   = useState(todayStr)
   const [members, setMembers]             = useState<Member[]>([])
+  const [iccfClassCode, setIccfClassCode] = useState<string | undefined>()
   const [attendanceMap, setAttendanceMap] = useState<Map<string, Attendance>>(new Map())
   const [session, setSession]             = useState<Session | null>(null)
   const [loading, setLoading]             = useState(true)
   const [savingSet, setSavingSet]         = useState<Set<string>>(new Set())
   const [finalizing, setFinalizing]       = useState(false)
+
+  // iccf sync state
+  const [iccfSession, setIccfSession]         = useState<IccfSessionInfo | null>(null)
+  const [showIccfLogin, setShowIccfLogin]     = useState(false)
+  const [iccfSyncJob, setIccfSyncJob]         = useState<SyncJob | null>(null)
+  const [pendingFinalize, setPendingFinalize] = useState(false)
+  const pollTimerRef                          = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // 追蹤已初始化的 classId_date，避免重複呼叫 initializeAbsentForAll
   const initializedRef = useRef<string>('')
@@ -74,10 +85,39 @@ export default function Attendance() {
   useEffect(() => {
     if (!user?.classId) return
     setLoading(true)
-    getMembers(user.classId)
-      .then(setMembers)
+    Promise.all([getMembers(user.classId), getClassInfo(user.classId)])
+      .then(([data, classInfo]) => {
+        setMembers(data)
+        setIccfClassCode(classInfo?.iccfClassCode || undefined)
+      })
       .finally(() => setLoading(false))
   }, [user?.classId])
+
+  // Load existing iccf session if this class has iccf sync enabled
+  useEffect(() => {
+    if (!iccfClassCode) return
+    iccfGetCurrentSessions()
+      .then(sessions => { if (sessions.length > 0) setIccfSession(sessions[0]) })
+      .catch(() => { /* non-critical */ })
+  }, [iccfClassCode])
+
+  // Poll sync job status
+  useEffect(() => {
+    if (!iccfSyncJob) return
+    if (iccfSyncJob.status === 'done' || iccfSyncJob.status === 'failed') return
+
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const updated = await pollIccfSyncJob(iccfSyncJob.jobId)
+        setIccfSyncJob(updated)
+        if (updated.status === 'done' || updated.status === 'failed') {
+          if (pollTimerRef.current) clearInterval(pollTimerRef.current)
+        }
+      } catch { /* ignore */ }
+    }, 2500)
+
+    return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current) }
+  }, [iccfSyncJob?.jobId, iccfSyncJob?.status])
 
   // ─── 訂閱出席記錄（onSnapshot — 支援多領班即時同步） ─────
 
@@ -168,13 +208,76 @@ export default function Attendance() {
 
   // ─── 完成點名 ─────────────────────────────────────────────
 
-  const handleFinalize = async () => {
+  const doFinalize = async (sessionId?: string) => {
     if (!user?.classId || !user.uid) return
     setFinalizing(true)
     try {
       await finalizeSession(user.classId, date, user.uid)
+
+      // Trigger iccf sync if classCode and session are available
+      if (iccfClassCode && sessionId) {
+        try {
+          const { jobId, message } = await createIccfSyncJob({
+            classId: user.classId,
+            date,
+            sessionId,
+          })
+          if (jobId) {
+            setIccfSyncJob({
+              jobId,
+              status: 'pending',
+              result: null,
+              error: null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            })
+          } else if (message) {
+            // e.g. "無出席班員，略過 iccf 同步"
+            setIccfSyncJob({
+              jobId: '',
+              status: 'done',
+              result: { marked: [], notFound: [] },
+              error: null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            })
+          }
+        } catch {
+          // iccf sync failure is non-blocking
+        }
+      }
     } finally {
       setFinalizing(false)
+      setPendingFinalize(false)
+    }
+  }
+
+  const handleFinalize = async () => {
+    if (!user?.classId || !user.uid) return
+
+    // If iccf sync is enabled and no session, prompt login first
+    if (iccfClassCode && !iccfSession) {
+      setPendingFinalize(true)
+      setShowIccfLogin(true)
+      return
+    }
+
+    await doFinalize(iccfSession?.sessionId)
+  }
+
+  const handleIccfLoginSuccess = async (result: IccfLoginResult) => {
+    setShowIccfLogin(false)
+    const sessionInfo: IccfSessionInfo = {
+      sessionId: result.sessionId,
+      iccfAccount: '',
+      profile: result.profile,
+      classes: result.classes,
+      lastUsedAt: new Date().toISOString(),
+      expiresAt: result.expiresAt,
+    }
+    setIccfSession(sessionInfo)
+    if (pendingFinalize) {
+      await doFinalize(result.sessionId)
     }
   }
 
@@ -216,6 +319,13 @@ export default function Attendance() {
 
   return (
     <div className="min-h-screen bg-amber-50">
+
+      {showIccfLogin && (
+        <IccfLoginModal
+          onSuccess={handleIccfLoginSuccess}
+          onCancel={() => { setShowIccfLogin(false); setPendingFinalize(false) }}
+        />
+      )}
 
       {/* ── Header + 進度列 ── */}
       <header className="bg-white border-b border-amber-100 sticky top-0 z-10">
@@ -314,7 +424,37 @@ export default function Attendance() {
       {/* ── 完成點名 / 重新開啟 — 固定在 BottomNav 上方 ── */}
       {!loading && members.length > 0 && (
         <div className="fixed bottom-16 left-0 right-0 z-10">
-          <div className="max-w-screen-sm mx-auto px-4 py-3 bg-white/90 backdrop-blur-sm border-t border-amber-100">
+          <div className="max-w-screen-sm mx-auto px-4 py-3 bg-white/90 backdrop-blur-sm border-t border-amber-100 flex flex-col gap-2">
+
+            {/* iccf sync status */}
+            {iccfSyncJob && iccfSyncJob.jobId && (
+              <div className={`text-xs rounded-xl px-3 py-2 ${
+                iccfSyncJob.status === 'done'
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : iccfSyncJob.status === 'failed'
+                    ? 'bg-red-50 text-red-600 border border-red-200'
+                    : 'bg-blue-50 text-blue-600 border border-blue-200'
+              }`}>
+                {iccfSyncJob.status === 'pending' && '⏳ iccf 同步排隊中…'}
+                {iccfSyncJob.status === 'processing' && '⏳ iccf 同步中…'}
+                {iccfSyncJob.status === 'done' && (
+                  `✓ iccf 同步完成：${iccfSyncJob.result?.marked.length ?? 0} 人出席已上傳` +
+                  (iccfSyncJob.result?.notFound.length ? `，${iccfSyncJob.result.notFound.length} 人未找到` : '')
+                )}
+                {iccfSyncJob.status === 'failed' && `✗ iccf 同步失敗：${iccfSyncJob.error ?? '未知錯誤'}`}
+              </div>
+            )}
+
+            {/* iccf session indicator (when enabled and session present) */}
+            {iccfClassCode && !session?.isFinalized && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${iccfSession ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                <span className={iccfSession ? 'text-blue-500' : 'text-gray-400'}>
+                  {iccfSession ? `iccf 已登入（完成點名時自動同步）` : `完成點名時將要求登入 iccf`}
+                </span>
+              </div>
+            )}
+
             {session?.isFinalized ? (
               <button
                 onClick={handleReopen}

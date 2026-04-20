@@ -4,9 +4,26 @@ import { CookieJar } from 'tough-cookie'
 import * as cheerio from 'cheerio'
 import { buildBig5FormBody, encodeBig5URIComponent, decodeBig5 } from './encoding'
 import { IccfError } from './errors'
-import { parseAddMemberResult, parseClassList, type AddMemberResult } from './parser'
+import {
+  parseAddMemberResult,
+  parseClassList,
+  parseAttendanceSessions,
+  parseAttendanceMemberList,
+  type AddMemberResult,
+  type AttendanceSessionEntry,
+  type AttendanceMemberEntry,
+} from './parser'
 
 export type { AddMemberResult }
+
+export interface MarkAttendanceResult {
+  /** Members successfully marked present in iccf */
+  marked: string[]
+  /** Members that appeared in presentNames but not found on iccf page */
+  notFound: string[]
+  /** General error message if the whole operation failed */
+  error?: string
+}
 
 const BASE = 'https://iccf.ikd.org.tw'
 const LOGIN_URL = `${BASE}/55index.php`
@@ -278,5 +295,121 @@ export async function addMember(
   } catch (e) {
     if (e instanceof IccfError) throw e
     throw new IccfError('network_error', `iccf 補入失敗: ${(e as Error).message}`, e)
+  }
+}
+
+/**
+ * Convert Gregorian date string (YYYY-MM-DD) to ROC year format used by iccf.
+ * e.g. "2026-04-20" → "115/04/20"
+ */
+function toRocDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-')
+  const rocYear = parseInt(y) - 1911
+  return `${rocYear}/${m}/${d}`
+}
+
+/**
+ * Mark attendance for a set of present members on iccf.
+ *
+ * Flow:
+ * 1. Load the class presence page for the given classCode
+ * 2. Find the session (班期) matching the given date
+ * 3. Navigate to that session's attendance form
+ * 4. Check the rows matching presentMemberNames and submit
+ *
+ * Note: This is best-effort. Keywords/selectors may need tuning after
+ * observing real iccf HTML responses.
+ *
+ * @param jar                - active session cookie jar
+ * @param classCode          - sec_class code (e.g. "TWT019")
+ * @param date               - YYYY-MM-DD format
+ * @param presentMemberNames - names of members who are present
+ */
+export async function markAttendance(
+  jar: CookieJar,
+  classCode: string,
+  date: string,
+  presentMemberNames: string[],
+): Promise<MarkAttendanceResult> {
+  const http = makeHttp(jar)
+  const rocDate = toRocDate(date)
+
+  try {
+    // Step 1: Load the class presence selection page
+    const presUrl =
+      `/class_present/select_class_pres5.php?sec_class=${encodeBig5URIComponent(classCode)}`
+    const presRes = await http.get(presUrl)
+    const presHtml = decodeBig5(presRes.data as Buffer)
+
+    // Step 2: Find the session entry matching our date
+    const sessions = parseAttendanceSessions(presHtml)
+    const targetSession = sessions.find(s => s.rocDate === rocDate || s.dateLabel.includes(rocDate))
+
+    if (!targetSession) {
+      return {
+        marked: [],
+        notFound: presentMemberNames,
+        error: `iccf 找不到日期 ${rocDate} 的班期（共 ${sessions.length} 筆）`,
+      }
+    }
+
+    // Step 3: Navigate to the attendance form for that session
+    const formUrl = targetSession.formUrl.startsWith('http')
+      ? targetSession.formUrl
+      : `${BASE}/${targetSession.formUrl.replace(/^\//, '')}`
+
+    const formRes = await http.get(formUrl)
+    const formHtml = decodeBig5(formRes.data as Buffer)
+
+    // Step 4: Parse member list from the attendance form
+    const members: AttendanceMemberEntry[] = parseAttendanceMemberList(formHtml)
+
+    const presentSet = new Set(presentMemberNames)
+    const marked: string[] = []
+    const notFound: string[] = [...presentMemberNames]
+
+    // Extract the form action and hidden inputs
+    const $form = cheerio.load(formHtml)
+    const formAction = $form('form').first().attr('action') ?? formUrl
+    const submitUrl = formAction.startsWith('http')
+      ? formAction
+      : `${BASE}/${formAction.replace(/^\//, '')}`
+
+    const hidden: Record<string, string> = {}
+    $form('input[type="hidden"]').each((_, el) => {
+      const n = $form(el).attr('name')
+      const v = $form(el).attr('value') ?? ''
+      if (n) hidden[n] = v
+    })
+
+    // Build the form body: check the boxes for present members
+    const formFields: Record<string, string> = { ...hidden }
+
+    for (const member of members) {
+      if (presentSet.has(member.name)) {
+        // Mark as present — the field name and value depend on iccf form
+        if (member.presentFieldName) {
+          formFields[member.presentFieldName] = member.presentFieldValue ?? '1'
+        }
+        marked.push(member.name)
+        const idx = notFound.indexOf(member.name)
+        if (idx !== -1) notFound.splice(idx, 1)
+      }
+    }
+
+    // Step 5: Submit the attendance form
+    const submitBody = buildBig5FormBody({ ...formFields, B1: '確認' })
+    await http.post(submitUrl, submitBody, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Referer: formUrl,
+      },
+    })
+
+    return { marked, notFound }
+  } catch (e) {
+    if (e instanceof IccfError) throw e
+    const msg = `iccf 點名失敗: ${(e as Error).message}`
+    return { marked: [], notFound: presentMemberNames, error: msg }
   }
 }
