@@ -19,10 +19,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      # Use `npm install` instead of `npm ci` to pick up platform-specific
-      # optional deps (e.g. rolldown's linux-x64-gnu binding) that may be missing
-      # from a mac-generated lockfile.
       - run: npm install --no-audit --no-fund
+
+      # rolldown's linux-x64-gnu native binding is an optionalDependency that
+      # mac-generated lockfiles omit. Install explicitly for ubuntu runners.
+      - run: npm install --no-save --no-audit --no-fund @rolldown/binding-linux-x64-gnu
 
       - run: npm run lint
 

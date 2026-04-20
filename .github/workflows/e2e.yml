@@ -27,11 +27,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # Use `npm install` instead of `npm ci` to pick up platform-specific
-      # optional deps (e.g. rolldown's linux-x64-gnu binding) that may be missing
-      # from a mac-generated lockfile.
       - name: Install root deps
         run: npm install --no-audit --no-fund
+
+      # rolldown's linux-x64-gnu native binding is an optionalDependency that
+      # mac-generated lockfiles omit. Install explicitly for ubuntu runners.
+      - name: Install rolldown linux binding
+        run: npm install --no-save --no-audit --no-fund @rolldown/binding-linux-x64-gnu
 
       - name: Install server deps
         run: npm --prefix server install --no-audit --no-fund
