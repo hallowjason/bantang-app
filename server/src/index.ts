@@ -16,6 +16,7 @@ import uploadRouter from './routes/upload'
 import scheduleCacheRouter from './routes/scheduleCache'
 import iccfSessionRouter from './routes/iccfSession'
 import iccfSyncRouter from './routes/iccfSync'
+import testSeedRouter from './routes/testSeed'
 import { ensureSessionIndexes, sweepExpiredMemory } from './iccf/sessionStore'
 import { sweepOldJobs } from './jobs/iccfSyncWorker'
 
@@ -60,6 +61,15 @@ app.use(express.json())
 app.use('/uploads', express.static(UPLOADS_DIR))
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
+
+// Test-only seed endpoint: registered ONLY in Auth Emulator mode (E2E/dev).
+// Mounted BEFORE adminRouter since adminRouter.use(requireAuth) would otherwise
+// reject unauthenticated seed calls. Never reachable in production because
+// FIREBASE_AUTH_EMULATOR_HOST is unset there.
+if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+  app.use('/api/_test', testSeedRouter)
+  console.warn('[test] /api/_test/* routes enabled — emulator mode only')
+}
 
 // Users (GET /api/users/me) + Admin routes (GET/PUT /api/admin/*)
 app.use('/api', adminRouter)

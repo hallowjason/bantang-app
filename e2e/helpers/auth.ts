@@ -3,6 +3,7 @@ import type { TestUser } from '../fixtures/test-users'
 
 const PROJECT_ID = process.env.E2E_FIREBASE_PROJECT_ID ?? 'bantang-e2e'
 const EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? 'localhost:9099'
+const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3101'
 
 let initialized = false
 
@@ -16,7 +17,14 @@ function ensureAdmin(): admin.app.App {
   return admin.app()
 }
 
-/** Ensure user record exists in Auth Emulator, then mint a custom token with intentRole claim. */
+const SELF_ASSIGNABLE = new Set(['leader', 'junior_leader', 'member'])
+
+/**
+ * Ensure user exists in Auth Emulator and — for elevated roles that the server
+ * refuses to self-assign on first login — pre-seed the MongoDB user document
+ * via the emulator-gated /api/_test/seed-user endpoint. Then mint a custom
+ * token so the frontend can sign in.
+ */
 export async function mintE2EToken(user: TestUser): Promise<string> {
   ensureAdmin()
   const auth = admin.auth()
@@ -29,6 +37,23 @@ export async function mintE2EToken(user: TestUser): Promise<string> {
       displayName: user.name,
     })
   }
+
+  if (!SELF_ASSIGNABLE.has(user.role)) {
+    const res = await fetch(`${API_URL}/api/_test/seed-user`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      }),
+    })
+    if (!res.ok) {
+      throw new Error(`Failed to seed elevated user ${user.uid}: ${res.status}`)
+    }
+  }
+
   return auth.createCustomToken(user.uid, { intentRole: user.role })
 }
 

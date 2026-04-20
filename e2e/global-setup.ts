@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { MongoMemoryServer } from 'mongodb-memory-server'
@@ -7,6 +7,24 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const RUNTIME_DIR = resolve(__dirname, '.runtime')
 const STATE_FILE = resolve(RUNTIME_DIR, 'state.json')
+
+/** Best-effort cleanup of any orphan processes from a prior crashed run. */
+function reapStalePids() {
+  if (!existsSync(STATE_FILE)) return
+  try {
+    const { emulatorPid, serverPid } = JSON.parse(readFileSync(STATE_FILE, 'utf-8')) as {
+      emulatorPid?: number
+      serverPid?: number
+    }
+    for (const pid of [serverPid, emulatorPid]) {
+      if (!pid) continue
+      try { process.kill(pid, 'SIGTERM') } catch { /* already gone */ }
+    }
+  } catch {
+    // unreadable state file — ignore
+  }
+  try { rmSync(STATE_FILE, { force: true }) } catch { /* ignore */ }
+}
 
 let mongo: MongoMemoryServer
 let emulatorProc: ChildProcess
@@ -28,6 +46,7 @@ async function waitFor(url: string, timeoutMs = 30_000): Promise<void> {
 
 export default async function globalSetup(): Promise<void> {
   mkdirSync(RUNTIME_DIR, { recursive: true })
+  reapStalePids()
 
   // 1. Mongo Memory Server
   mongo = await MongoMemoryServer.create()
