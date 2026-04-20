@@ -7,3 +7,8 @@ server/uploads/
 server/dist/
 server/node_modules/
 *.local
+
+# Playwright / E2E artifacts
+e2e/.runtime/
+playwright-report/
+test-results/

@@ -26,7 +26,9 @@ const FIREBASE_CRED_ENV = ['FIREBASE_SERVICE_ACCOUNT_B64', 'FIREBASE_SERVICE_ACC
 
 function validateEnv(): void {
   const missing = REQUIRED_ENV.filter(key => !process.env[key])
-  const hasFirebaseCred = FIREBASE_CRED_ENV.some(key => process.env[key])
+  // Auth Emulator mode (E2E/dev) doesn't need real Firebase credentials.
+  const usingEmulator = Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST)
+  const hasFirebaseCred = usingEmulator || FIREBASE_CRED_ENV.some(key => process.env[key])
 
   const errors: string[] = []
   if (missing.length) errors.push(`Missing required env: ${missing.join(', ')}`)
@@ -86,7 +88,9 @@ app.get('/ready', async (_req, res) => {
   const checks: Record<string, boolean> = {
     db: false,
     firebaseCreds: Boolean(
-      process.env.FIREBASE_SERVICE_ACCOUNT_B64 || process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+      process.env.FIREBASE_AUTH_EMULATOR_HOST ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_B64 ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
     ),
   }
 

@@ -24,7 +24,7 @@ export default function BottomNav() {
   const { user } = useAuth()
   const { pathname } = useLocation()
 
-  const tabs = user?.role === 'head_leader'
+  const tabs = (user?.role === 'head_leader' || user?.role === 'class_master')
     ? [...TABS, ADMIN_TAB]
     : [...TABS]
 

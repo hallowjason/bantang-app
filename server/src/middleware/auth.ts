@@ -9,6 +9,13 @@ let adminInitialized = false
 function ensureAdminInitialized() {
   if (adminInitialized) return
 
+  // E2E/dev: Auth Emulator mode needs only projectId; no real credential required.
+  if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+    admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT ?? 'bantang-e2e' })
+    adminInitialized = true
+    return
+  }
+
   const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
 
