@@ -16,6 +16,7 @@ import uploadRouter from './routes/upload'
 import scheduleCacheRouter from './routes/scheduleCache'
 import iccfSessionRouter from './routes/iccfSession'
 import iccfSyncRouter from './routes/iccfSync'
+import testSeedRouter from './routes/testSeed'
 import { ensureSessionIndexes, sweepExpiredMemory } from './iccf/sessionStore'
 import { sweepOldJobs } from './jobs/iccfSyncWorker'
 
@@ -26,7 +27,9 @@ const FIREBASE_CRED_ENV = ['FIREBASE_SERVICE_ACCOUNT_B64', 'FIREBASE_SERVICE_ACC
 
 function validateEnv(): void {
   const missing = REQUIRED_ENV.filter(key => !process.env[key])
-  const hasFirebaseCred = FIREBASE_CRED_ENV.some(key => process.env[key])
+  // Auth Emulator mode (E2E/dev) doesn't need real Firebase credentials.
+  const usingEmulator = Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST)
+  const hasFirebaseCred = usingEmulator || FIREBASE_CRED_ENV.some(key => process.env[key])
 
   const errors: string[] = []
   if (missing.length) errors.push(`Missing required env: ${missing.join(', ')}`)
@@ -59,6 +62,15 @@ app.use('/uploads', express.static(UPLOADS_DIR))
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
+// Test-only seed endpoint: registered ONLY in Auth Emulator mode (E2E/dev).
+// Mounted BEFORE adminRouter since adminRouter.use(requireAuth) would otherwise
+// reject unauthenticated seed calls. Never reachable in production because
+// FIREBASE_AUTH_EMULATOR_HOST is unset there.
+if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+  app.use('/api/_test', testSeedRouter)
+  console.warn('[test] /api/_test/* routes enabled — emulator mode only')
+}
+
 // Users (GET /api/users/me) + Admin routes (GET/PUT /api/admin/*)
 app.use('/api', adminRouter)
 
@@ -86,7 +98,9 @@ app.get('/ready', async (_req, res) => {
   const checks: Record<string, boolean> = {
     db: false,
     firebaseCreds: Boolean(
-      process.env.FIREBASE_SERVICE_ACCOUNT_B64 || process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+      process.env.FIREBASE_AUTH_EMULATOR_HOST ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_B64 ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
     ),
   }
 

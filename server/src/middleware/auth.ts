@@ -9,6 +9,13 @@ let adminInitialized = false
 function ensureAdminInitialized() {
   if (adminInitialized) return
 
+  // E2E/dev: Auth Emulator mode needs only projectId; no real credential required.
+  if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+    admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT ?? 'bantang-e2e' })
+    adminInitialized = true
+    return
+  }
+
   const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
 
@@ -55,13 +62,19 @@ export async function requireAuth(
     let userDoc = await usersCol.findOne({ _id: uid })
 
     if (!userDoc) {
-      // First login: create user with default role
-      // intentRole can be passed via x-intent-role header (set by frontend on first login)
-      const intentRole = (
-        (req.headers['x-intent-role'] as UserRole | undefined) ??
-        (decoded['intentRole'] as UserRole | undefined) ??
-        'leader'
+      // First login: create user with default role.
+      // intentRole is self-declared by the client; only low-privilege roles
+      // are accepted. Elevated roles (head_leader, class_master) must be
+      // assigned by an existing admin via a separate endpoint — never on
+      // first login — to prevent privilege escalation.
+      const SELF_ASSIGNABLE_ROLES: readonly UserRole[] = ['leader', 'junior_leader', 'member']
+      const rawIntent = (
+        (req.headers['x-intent-role'] as string | undefined) ??
+        (decoded['intentRole'] as string | undefined)
       )
+      const intentRole: UserRole = (SELF_ASSIGNABLE_ROLES as readonly string[]).includes(rawIntent ?? '')
+        ? (rawIntent as UserRole)
+        : 'leader'
       const newUser: AppUser = {
         _id: uid,
         name: decoded.name ?? '',
