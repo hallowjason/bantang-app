@@ -9,8 +9,9 @@ export type SyncJobStatus = 'pending' | 'processing' | 'done' | 'failed'
 export interface IccfSyncJob {
   jobId: string
   classId: string
-  classCode: string
-  date: string                  // YYYY-MM-DD
+  classCode: string   // class_sec_code (e.g. "TWC")
+  date: string        // YYYY-MM-DD
+  topicName: string   // 課程名稱 for 設定課程 step
   sessionId: string
   presentMemberNames: string[]
   status: SyncJobStatus
@@ -24,13 +25,13 @@ export interface IccfSyncJob {
 
 const jobs = new Map<string, IccfSyncJob>()
 
-const JOB_TTL_MS = 60 * 60 * 1000 // keep jobs for 1 hour
+const JOB_TTL_MS = 60 * 60 * 1000
 
-/** Create and immediately enqueue a sync job. */
 export function createSyncJob(params: {
   classId: string
   classCode: string
   date: string
+  topicName: string
   sessionId: string
   presentMemberNames: string[]
 }): IccfSyncJob {
@@ -51,7 +52,6 @@ export function getJob(jobId: string): IccfSyncJob | null {
   return jobs.get(jobId) ?? null
 }
 
-/** Purge jobs older than TTL. Call periodically. */
 export function sweepOldJobs(): void {
   const cutoff = Date.now() - JOB_TTL_MS
   for (const [id, job] of jobs.entries()) {
@@ -79,10 +79,16 @@ async function processJob(jobId: string): Promise<void> {
 
     await touchSession(job.sessionId)
 
+    // Look up iccfClassCode (class_code like B3000549) from the session's class list
+    const classEntry = session.classes.find(c => c.classCode === job.classCode)
+    const iccfClassCode = classEntry?.iccfClassCode
+
     const result = await markAttendance(
       session.cookieJar,
       job.classCode,
+      iccfClassCode,
       job.date,
+      job.topicName,
       job.presentMemberNames,
     )
 

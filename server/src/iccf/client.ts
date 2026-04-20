@@ -7,10 +7,9 @@ import { IccfError } from './errors'
 import {
   parseAddMemberResult,
   parseClassList,
-  parseAttendanceSessions,
+  parseCourseSessionList,
   parseAttendanceMemberList,
   type AddMemberResult,
-  type AttendanceSessionEntry,
   type AttendanceMemberEntry,
 } from './parser'
 
@@ -47,8 +46,9 @@ export interface IccfLoginResult {
 }
 
 export interface IccfClassEntry {
-  classCode: string
+  classCode: string       // class_sec_code, e.g. "TWC"
   className: string
+  iccfClassCode?: string  // class_code, e.g. "B3000549" — needed for course list URL
 }
 
 /**
@@ -301,72 +301,109 @@ export async function addMember(
 /**
  * Mark attendance for a set of present members on iccf.
  *
- * Flow:
- * 1. Load the class presence selection page for the given classCode
- * 2. Find the session (班期) matching the given date
- * 3. Navigate to that session's attendance form (show_present5.php)
- * 4. Submit form_roll with present_o[i] checked for present members
+ * Full flow (3 steps before attendance):
+ *  1. Load show_course_pres5.php → find session by date → get seq + setup URL
+ *  2. GET edit_course_single_adv5.php → POST setup (remark/topic, study=T, close=T)
+ *  3. Load show_present5.php → submit roll_call5.php with present members
  *
  * @param jar                - active session cookie jar
- * @param classCode          - sec_class code (e.g. "TWC")
- * @param date               - YYYY-MM-DD format
+ * @param classCode          - class_sec_code (e.g. "TWC")
+ * @param iccfClassCode      - class_code (e.g. "B3000549"), needed to load course list
+ * @param date               - YYYY-MM-DD
+ * @param topicName          - course name to fill in 設定課程 (remark field)
  * @param presentMemberNames - names of members who are present
  */
 export async function markAttendance(
   jar: CookieJar,
   classCode: string,
+  iccfClassCode: string | undefined,
   date: string,
+  topicName: string,
   presentMemberNames: string[],
 ): Promise<MarkAttendanceResult> {
   const http = makeHttp(jar)
 
   try {
-    // Step 1: Load the class presence selection page
-    const presUrl =
-      `/class_present/select_class_pres5.php?sec_class=${encodeBig5URIComponent(classCode)}`
-    const presRes = await http.get(presUrl)
-    const presHtml = decodeBig5(presRes.data as Buffer)
+    // ── Step 1: Load course list, find session by date ────────────────────
+    let courseListUrl: string
+    if (iccfClassCode) {
+      courseListUrl =
+        `/class_present/show_course_pres5.php?label=edit` +
+        `&class_code=${encodeURIComponent(iccfClassCode)}` +
+        `&class_sec_code=${encodeBig5URIComponent(classCode)}&class_close=2`
+    } else {
+      // Fallback: try without class_code; iccf may still resolve via session cookie
+      courseListUrl =
+        `/class_present/show_course_pres5.php?label=edit` +
+        `&class_sec_code=${encodeBig5URIComponent(classCode)}&class_close=2`
+    }
 
-    // Step 2: Find the session entry matching our date (YYYY-MM-DD)
-    const sessions = parseAttendanceSessions(presHtml)
-    const targetSession = sessions.find(
-      s => s.gregDate === date || s.dateLabel.includes(date),
-    )
+    const listRes = await http.get(courseListUrl)
+    const listHtml = decodeBig5(listRes.data as Buffer)
 
-    if (!targetSession) {
+    const courseSessions = parseCourseSessionList(listHtml)
+    const target = courseSessions.find(s => s.gregDate === date)
+
+    if (!target) {
       return {
         marked: [],
         notFound: presentMemberNames,
-        error: `iccf 找不到日期 ${date} 的班期（共 ${sessions.length} 筆）`,
+        error: `iccf 找不到日期 ${date} 的班期（共 ${courseSessions.length} 筆）`,
       }
     }
 
-    // Step 3: Navigate to the attendance form for that session
-    const formUrl = targetSession.formUrl.startsWith('http')
-      ? targetSession.formUrl
-      : `${BASE}/${targetSession.formUrl.replace(/^\//, '')}`
+    // ── Step 2: Setup course (set topic name, mark as 上過, 必修) ────────
+    if (target.setupUrl) {
+      const setupPageUrl = resolveUrl(courseListUrl, target.setupUrl)
+      const setupRes = await http.get(setupPageUrl)
+      const setupHtml = decodeBig5(setupRes.data as Buffer)
 
-    const formRes = await http.get(formUrl)
+      // Extract all hidden inputs from the setup form
+      const $setup = cheerio.load(setupHtml)
+      const setupHidden: Record<string, string> = {}
+      $setup('input[type="hidden"], input[type=hidden]').each((_, el) => {
+        const n = $setup(el).attr('name')
+        const v = $setup(el).attr('value') ?? ''
+        if (n) setupHidden[n] = v
+      })
+
+      const setupFormAction =
+        $setup('form').first().attr('action') ?? 'edit_course_single_adv_save5.php'
+      const setupSubmitUrl = resolveUrl(setupPageUrl, setupFormAction)
+
+      const setupBody = buildBig5FormBody({
+        ...setupHidden,
+        remark: topicName,
+        study: 'T',   // 必修
+        close: 'T',   // 上過
+      })
+
+      await http.post(setupSubmitUrl, setupBody, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Referer: setupPageUrl,
+        },
+      })
+    }
+
+    // ── Step 3: Load attendance form and submit ───────────────────────────
+    const attendanceUrl = resolveUrl(courseListUrl, target.attendanceUrl)
+    const formRes = await http.get(attendanceUrl)
     const formHtml = decodeBig5(formRes.data as Buffer)
 
-    // Step 4: Parse member list from the attendance form
     const members: AttendanceMemberEntry[] = parseAttendanceMemberList(formHtml)
 
     const presentSet = new Set(presentMemberNames)
     const marked: string[] = []
     const notFound: string[] = [...presentMemberNames]
 
-    // Extract form action from form_roll (not the first form which is form_chang_mbrtype)
     const $form = cheerio.load(formHtml)
     const rollFormAction =
       $form('form[name="form_roll"]').attr('action') ??
       $form('form').last().attr('action') ??
       'roll_call5.php'
-    const submitUrl = rollFormAction.startsWith('http')
-      ? rollFormAction
-      : `${BASE}/class_present/${rollFormAction.replace(/^\//, '')}`
+    const submitUrl = resolveUrl(attendanceUrl, rollFormAction)
 
-    // Collect all hidden inputs (includes class_no[i], no_mem[i], name[i], class_code, etc.)
     const hidden: Record<string, string> = {}
     $form('input[type="hidden"]').each((_, el) => {
       const n = $form(el).attr('name')
@@ -374,9 +411,7 @@ export async function markAttendance(
       if (n) hidden[n] = v
     })
 
-    // Build the form body: start with all hidden fields, then add present_o[i] for present members
     const formFields: Record<string, string> = { ...hidden }
-
     for (const member of members) {
       if (presentSet.has(member.name) && member.presentFieldName) {
         formFields[member.presentFieldName] = member.presentFieldValue ?? 'O'
@@ -386,12 +421,11 @@ export async function markAttendance(
       }
     }
 
-    // Step 5: Submit the attendance form (roll_call5.php)
     const submitBody = buildBig5FormBody(formFields)
     await http.post(submitUrl, submitBody, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        Referer: formUrl,
+        Referer: attendanceUrl,
       },
     })
 
@@ -401,4 +435,15 @@ export async function markAttendance(
     const msg = `iccf 點名失敗: ${(e as Error).message}`
     return { marked: [], notFound: presentMemberNames, error: msg }
   }
+}
+
+/** Resolve a possibly-relative URL against a base URL. */
+function resolveUrl(base: string, href: string): string {
+  if (href.startsWith('http')) return href
+  if (href.startsWith('/')) return `${BASE}${href}`
+  // relative: strip base filename, append href
+  const baseDir = base.includes('/') ? base.slice(0, base.lastIndexOf('/') + 1) : base + '/'
+  // handle ../
+  const url = new URL(href, baseDir.startsWith('http') ? baseDir : `${BASE}/${baseDir.replace(/^\//, '')}`)
+  return url.href
 }

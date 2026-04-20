@@ -17,10 +17,11 @@ router.use(requireAuth)
  * The worker runs asynchronously — poll GET /:jobId for progress.
  */
 router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { classId, date, sessionId } = req.body as {
+  const { classId, date, sessionId, topicName } = req.body as {
     classId?: string
     date?: string
     sessionId?: string
+    topicName?: string
   }
 
   if (!classId || !date || !sessionId) {
@@ -60,7 +61,14 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     .map(r => nameMap.get(r.memberId))
     .filter((n): n is string => !!n)
 
-  const job = createSyncJob({ classId, classCode, date, sessionId, presentMemberNames })
+  const job = createSyncJob({
+    classId,
+    classCode,
+    date,
+    topicName: topicName?.trim() ?? '',
+    sessionId,
+    presentMemberNames,
+  })
 
   res.json({ success: true, data: toJobDto(job) })
 })

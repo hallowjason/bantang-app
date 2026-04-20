@@ -14,7 +14,10 @@ import {
 } from '../lib/api/sessions'
 import { iccfGetCurrentSessions, type IccfLoginResult, type IccfSessionInfo } from '../lib/api/iccfSession'
 import { createIccfSyncJob, pollIccfSyncJob, type SyncJob } from '../lib/api/iccfSync'
+import { getScheduleCache } from '../lib/google/schedule'
+import { getWeekStart } from '../lib/api/weekly'
 import IccfLoginModal from '../components/IccfLoginModal'
+import IccfTopicConfirmModal from '../components/IccfTopicConfirmModal'
 import type { Member, Attendance, Session, AttendanceStatus } from '../types'
 
 // ─── 出席三態循環定義 ─────────────────────────────────────
@@ -71,11 +74,14 @@ export default function Attendance() {
   const [finalizing, setFinalizing]       = useState(false)
 
   // iccf sync state
-  const [iccfSession, setIccfSession]         = useState<IccfSessionInfo | null>(null)
-  const [showIccfLogin, setShowIccfLogin]     = useState(false)
-  const [iccfSyncJob, setIccfSyncJob]         = useState<SyncJob | null>(null)
-  const [pendingFinalize, setPendingFinalize] = useState(false)
-  const pollTimerRef                          = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [iccfSession, setIccfSession]             = useState<IccfSessionInfo | null>(null)
+  const [showIccfLogin, setShowIccfLogin]         = useState(false)
+  const [showTopicConfirm, setShowTopicConfirm]   = useState(false)
+  const [pendingSessionId, setPendingSessionId]   = useState<string | undefined>()
+  const [defaultTopic, setDefaultTopic]           = useState('')
+  const [iccfSyncJob, setIccfSyncJob]             = useState<SyncJob | null>(null)
+  const [pendingFinalize, setPendingFinalize]     = useState(false)
+  const pollTimerRef                              = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // 追蹤已初始化的 classId_date，避免重複呼叫 initializeAbsentForAll
   const initializedRef = useRef<string>('')
@@ -208,19 +214,32 @@ export default function Attendance() {
 
   // ─── 完成點名 ─────────────────────────────────────────────
 
-  const doFinalize = async (sessionId?: string) => {
+  // Look up today's topic from the schedule cache (best-effort)
+  const fetchDefaultTopic = async (): Promise<string> => {
+    if (!user?.classId) return ''
+    try {
+      const weekStart = getWeekStart(new Date(date + 'T00:00:00'))
+      const schedule = await getScheduleCache(user.classId, weekStart)
+      const speaker = schedule?.upcomingSpeakers.find(s => s.date === date)
+      return speaker?.topic ?? ''
+    } catch {
+      return ''
+    }
+  }
+
+  const doFinalize = async (sessionId: string, topicName: string) => {
     if (!user?.classId || !user.uid) return
     setFinalizing(true)
     try {
       await finalizeSession(user.classId, date, user.uid)
 
-      // Trigger iccf sync if classCode and session are available
       if (iccfClassCode && sessionId) {
         try {
           const { jobId, message } = await createIccfSyncJob({
             classId: user.classId,
             date,
             sessionId,
+            topicName,
           })
           if (jobId) {
             setIccfSyncJob({
@@ -232,7 +251,6 @@ export default function Attendance() {
               updatedAt: new Date().toISOString(),
             })
           } else if (message) {
-            // e.g. "無出席班員，略過 iccf 同步"
             setIccfSyncJob({
               jobId: '',
               status: 'done',
@@ -252,17 +270,26 @@ export default function Attendance() {
     }
   }
 
+  // Step 1: ensure iccf login, then show topic confirm modal
   const handleFinalize = async () => {
     if (!user?.classId || !user.uid) return
 
-    // If iccf sync is enabled and no session, prompt login first
     if (iccfClassCode && !iccfSession) {
       setPendingFinalize(true)
       setShowIccfLogin(true)
       return
     }
 
-    await doFinalize(iccfSession?.sessionId)
+    if (iccfClassCode) {
+      // Show topic confirm before finalizing
+      const topic = await fetchDefaultTopic()
+      setDefaultTopic(topic)
+      setPendingSessionId(iccfSession?.sessionId)
+      setShowTopicConfirm(true)
+      return
+    }
+
+    await doFinalize('', '')
   }
 
   const handleIccfLoginSuccess = async (result: IccfLoginResult) => {
@@ -277,8 +304,19 @@ export default function Attendance() {
     }
     setIccfSession(sessionInfo)
     if (pendingFinalize) {
-      await doFinalize(result.sessionId)
+      // Login completed — now show topic confirm
+      const topic = await fetchDefaultTopic()
+      setDefaultTopic(topic)
+      setPendingSessionId(result.sessionId)
+      setPendingFinalize(false)
+      setShowTopicConfirm(true)
     }
+  }
+
+  // Step 2: user confirmed topic name
+  const handleTopicConfirm = async (topicName: string) => {
+    setShowTopicConfirm(false)
+    await doFinalize(pendingSessionId ?? '', topicName)
   }
 
   // ─── 重新開啟（補登） ────────────────────────────────────
@@ -324,6 +362,15 @@ export default function Attendance() {
         <IccfLoginModal
           onSuccess={handleIccfLoginSuccess}
           onCancel={() => { setShowIccfLogin(false); setPendingFinalize(false) }}
+        />
+      )}
+
+      {showTopicConfirm && (
+        <IccfTopicConfirmModal
+          defaultTopic={defaultTopic}
+          date={date}
+          onConfirm={handleTopicConfirm}
+          onCancel={() => { setShowTopicConfirm(false); setFinalizing(false) }}
         />
       )}
 

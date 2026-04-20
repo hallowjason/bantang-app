@@ -21,6 +21,7 @@ export async function createIccfSyncJob(params: {
   classId: string
   date: string
   sessionId: string
+  topicName: string
 }): Promise<{ jobId: string | null; message?: string }> {
   const data = await apiPost<{ jobId: string | null; message?: string }>('/api/iccf/sync', params)
   return data

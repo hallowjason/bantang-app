@@ -1,6 +1,6 @@
 import { Router, Response } from 'express'
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
-import { login, logout } from '../iccf/client'
+import { login, logout, listClasses } from '../iccf/client'
 import {
   createSession,
   deleteSession,
@@ -40,13 +40,19 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
   try {
     const { cookieJar, profile, forceKicked } = await login(account.trim(), password)
 
-    // Phase 1: defer full class discovery to the client after navigating.
-    // For now we attach an empty list; Phase 2 will populate from 班期 menu.
+    // Discover classes from the 班期 menu; extract both sec_class and class_code (best-effort)
+    let classes: Awaited<ReturnType<typeof listClasses>> = []
+    try {
+      classes = await listClasses(cookieJar)
+    } catch {
+      // Non-fatal: sync will still work if class_code can't be discovered
+    }
+
     const record = await createSession({
       leaderId: leaderUid,
       iccfAccount: account.trim(),
       profile,
-      classes: [],
+      classes,
       cookieJar,
     })
 
