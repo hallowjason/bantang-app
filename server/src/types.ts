@@ -27,6 +27,7 @@ export interface Class {
   leaderIds: string[]
   sheetTabName?: string
   sheetClassLabel?: string
+  iccfClassCode?: string
 }
 
 export interface EtiquetteItem {

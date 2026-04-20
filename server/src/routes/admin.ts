@@ -72,15 +72,25 @@ router.post('/admin/classes', requireTopAdmin, async (req: AuthenticatedRequest,
   res.json({ success: true, data: toClassDto(newClass) })
 })
 
+/** GET /api/classes/:classId — Get class info (any authenticated user) */
+router.get('/classes/:classId', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const { classId } = req.params
+  const db = getDB()
+  const cls = await db.collection<Class>('classes').findOne({ _id: classId })
+  if (!cls) { res.status(404).json({ success: false, error: 'not found' }); return }
+  res.json({ success: true, data: toClassDto(cls) })
+})
+
 /** PUT /api/admin/classes/:id — Update class (TopAdmin only) */
 router.put('/admin/classes/:id', requireTopAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id } = req.params
-  const { name, sheetTabName, sheetClassLabel } = req.body as Partial<Class>
+  const { name, sheetTabName, sheetClassLabel, iccfClassCode } = req.body as Partial<Class>
 
   const update: Partial<Class> = {}
   if (name !== undefined) update.name = name.trim()
   if (sheetTabName !== undefined) update.sheetTabName = sheetTabName.trim()
   if (sheetClassLabel !== undefined) update.sheetClassLabel = sheetClassLabel.trim()
+  if (iccfClassCode !== undefined) update.iccfClassCode = iccfClassCode.trim()
 
   const db = getDB()
   await db.collection<Class>('classes').updateOne({ _id: id }, { $set: update })
@@ -107,6 +117,7 @@ function toClassDto(c: Class) {
     leaderIds: c.leaderIds ?? [],
     sheetTabName: c.sheetTabName ?? '',
     sheetClassLabel: c.sheetClassLabel ?? '',
+    iccfClassCode: c.iccfClassCode ?? '',
   }
 }
 

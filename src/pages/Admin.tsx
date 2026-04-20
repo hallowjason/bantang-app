@@ -8,6 +8,7 @@ import {
   updateUserProfile,
   updateClassName,
   updateClassSheetConfig,
+  updateClassIccfCode,
 } from '../lib/api/admin'
 import {
   iccfGetCurrentSessions,
@@ -40,6 +41,7 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
   const [editName, setEditName] = useState('')
   const [editTabName, setEditTabName]       = useState('')
   const [editClassLabel, setEditClassLabel] = useState('')
+  const [editIccfCode, setEditIccfCode]     = useState('')
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState<string | null>(null)
 
@@ -63,6 +65,7 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
     setEditName(cls.name)
     setEditTabName(cls.sheetTabName ?? '')
     setEditClassLabel(cls.sheetClassLabel ?? '')
+    setEditIccfCode(cls.iccfClassCode ?? '')
   }
 
   const handleSave = async (classId: string) => {
@@ -73,6 +76,7 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
     try {
       await updateClassName(classId, name)
       await updateClassSheetConfig(classId, editTabName, editClassLabel)
+      await updateClassIccfCode(classId, editIccfCode)
       setEditId(null)
       onRefresh()
     } catch {
@@ -150,6 +154,18 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
                       />
                     </div>
                   </div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex flex-col gap-2.5">
+                    <p className="text-xs font-medium text-blue-700">🔗 iccf 同步設定</p>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-gray-500">iccf 班別代碼<span className="text-gray-400 ml-1">（如：TWT019）</span></label>
+                      <input
+                        value={editIccfCode}
+                        onChange={e => setEditIccfCode(e.target.value.toUpperCase())}
+                        placeholder="TWT019"
+                        className="border border-blue-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+                      />
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleSave(cls.id)} disabled={saving}
                       className="flex-1 py-2 rounded-xl bg-amber-700 text-white text-sm font-medium hover:bg-amber-800 disabled:opacity-60">
@@ -169,6 +185,11 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
                       <p className="text-xs text-gray-400 mt-0.5">課表：{cls.sheetTabName}{cls.sheetClassLabel ? ` › ${cls.sheetClassLabel}` : ''}</p>
                     ) : (
                       <p className="text-xs text-amber-500 mt-0.5">⚠ 尚未設定課表分頁</p>
+                    )}
+                    {cls.iccfClassCode ? (
+                      <p className="text-xs text-blue-500 mt-0.5 font-mono">iccf: {cls.iccfClassCode}</p>
+                    ) : (
+                      <p className="text-xs text-gray-300 mt-0.5">iccf: 未設定</p>
                     )}
                     <p className="text-xs text-gray-300 font-mono mt-0.5 select-all">{cls.id}</p>
                   </div>

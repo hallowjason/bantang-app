@@ -34,6 +34,7 @@ export interface Class {
   leaderIds: string[]
   sheetTabName?: string    // 課表 Google Sheet 的分頁名稱，如 "2026光明"
   sheetClassLabel?: string // 分頁內的等級班標頭，如 "禮行"、"義理"
+  iccfClassCode?: string   // iccf 系統班別代碼，如 "TWT019"
 }
 
 // ─── /etiquette_items/{itemId} ───────────────────────────

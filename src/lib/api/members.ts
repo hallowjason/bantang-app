@@ -1,5 +1,13 @@
 import { apiGet, apiPost, apiPut } from './client'
-import type { Member, ClassMemberWithName, Attendance } from '../../types'
+import type { Member, ClassMemberWithName, Attendance, Class } from '../../types'
+
+export async function getClassInfo(classId: string): Promise<Class | null> {
+  try {
+    return await apiGet<Class>(`/api/classes/${classId}`)
+  } catch {
+    return null
+  }
+}
 
 export async function getMembers(classId: string): Promise<Member[]> {
   return apiGet<Member[]>(`/api/members?classId=${classId}`)

@@ -36,3 +36,7 @@ export async function updateClassSheetConfig(
 ): Promise<void> {
   await apiPut(`/api/admin/classes/${classId}`, { sheetTabName, sheetClassLabel })
 }
+
+export async function updateClassIccfCode(classId: string, iccfClassCode: string): Promise<void> {
+  await apiPut(`/api/admin/classes/${classId}`, { iccfClassCode })
+}

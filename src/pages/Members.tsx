@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getMembers, removeMemberFromClass } from '../lib/api/members'
+import { getMembers, removeMemberFromClass, getClassInfo } from '../lib/api/members'
 import MemberForm from '../components/MemberForm'
 import SheetsImportModal from '../components/SheetsImportModal'
 import type { Member } from '../types'
@@ -82,6 +82,7 @@ export default function Members() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [members, setMembers] = useState<Member[]>([])
+  const [iccfClassCode, setIccfClassCode] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -95,8 +96,12 @@ export default function Members() {
     if (!user?.classId) return
     setLoading(true)
     try {
-      const data = await getMembers(user.classId)
+      const [data, classInfo] = await Promise.all([
+        getMembers(user.classId),
+        getClassInfo(user.classId),
+      ])
       setMembers(data)
+      setIccfClassCode(classInfo?.iccfClassCode || undefined)
     } finally {
       setLoading(false)
     }
@@ -211,6 +216,7 @@ export default function Members() {
       {showForm && user && (
         <MemberForm
           classId={user.classId}
+          iccfClassCode={iccfClassCode}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); load() }}
         />
