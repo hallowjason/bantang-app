@@ -30,6 +30,16 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     return
   }
 
+  const trimmedTopic = topicName?.trim() ?? ''
+  if (!trimmedTopic) {
+    res.status(400).json({
+      success: false,
+      error: '課程名稱不得為空（會清除 iccf 的備註欄）',
+      code: 'empty_topic',
+    })
+    return
+  }
+
   // Ping iccf upfront so we can ask the leader to re-login before a job is queued.
   const alive = await ensureAlive(sessionId)
   if (!alive.ok) {
@@ -76,7 +86,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     classId,
     classCode: iccfBCode,
     date,
-    topicName: topicName?.trim() ?? '',
+    topicName: trimmedTopic,
     sessionId,
     presentMemberNames,
   })
