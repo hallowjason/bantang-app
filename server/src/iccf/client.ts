@@ -170,16 +170,21 @@ export async function logout(jar: CookieJar): Promise<void> {
   }
 }
 
-/** Ping: lightweight check that the session is still valid. */
-export async function ping(jar: CookieJar): Promise<boolean> {
+/**
+ * Ping: lightweight check that the session is still valid.
+ * 'alive'       — session confirmed valid
+ * 'expired'     — iccf positively rejected the session (redirect to login page)
+ * 'unreachable' — network/server error; do NOT treat as expired
+ */
+export async function ping(jar: CookieJar): Promise<'alive' | 'expired' | 'unreachable'> {
   const http = makeHttp(jar)
   try {
     const res = await http.get('/publicphp/header_all5.php')
     const html = decodeBig5(res.data as Buffer)
-    // If session expired, iccf usually redirects to login page
-    return !html.includes('f_login') && !html.includes('name=zant')
+    const loggedOut = html.includes('f_login') || html.includes('name=zant')
+    return loggedOut ? 'expired' : 'alive'
   } catch {
-    return false
+    return 'unreachable'
   }
 }
 
