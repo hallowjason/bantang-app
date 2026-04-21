@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { getDB } from '../db'
-import type { AppUser, UserRole, Class, Member, ClassMember, Session, Attendance } from '../types'
+import type { AppUser, UserRole, Class, Member, ClassMember, Session, Attendance, AttendanceStatus } from '../types'
 
 /**
  * Test-only seeding router. Registered on the main app ONLY when
@@ -107,14 +107,14 @@ router.post('/seed-members', async (req, res) => {
   const now = new Date().toISOString()
   const today = now.slice(0, 10)
 
-  const memberOps = members.map((m: { id: string; name: string; regionUnit?: string; regionNumber?: string }) => ({
+  const memberOps = members.map((m: { id: string; name: string; birthday?: string; regionUnit?: string; regionNumber?: string }) => ({
     updateOne: {
       filter: { _id: m.id },
       update: {
         $set: {
           _id: m.id,
           name: m.name,
-          birthday: '',
+          birthday: typeof m.birthday === 'string' ? m.birthday : '',
           initialAttendanceCount: 0,
           mentor: '',
           regionUnit: m.regionUnit ?? '',
@@ -150,6 +150,53 @@ router.post('/seed-members', async (req, res) => {
   await db.collection<ClassMember>('class_members').bulkWrite(linkOps)
 
   res.json({ success: true, data: { count: members.length } })
+})
+
+// ─── POST /api/_test/seed-attendance ────────────────────────────────────────
+//
+// Body: { classId, date, records: [{ memberId, status }] }
+// Upserts attendance records directly — bypasses session lock checks.
+router.post('/seed-attendance', async (req, res) => {
+  const { classId, date, records } = req.body ?? {}
+
+  if (typeof classId !== 'string' || !classId) {
+    res.status(400).json({ success: false, error: 'classId required' })
+    return
+  }
+  if (typeof date !== 'string' || !date) {
+    res.status(400).json({ success: false, error: 'date required' })
+    return
+  }
+  if (!Array.isArray(records) || records.length === 0) {
+    res.status(400).json({ success: false, error: 'records array required' })
+    return
+  }
+
+  const db = getDB()
+  const now = new Date().toISOString()
+
+  const ops = (records as { memberId: string; status: AttendanceStatus }[]).map(r => ({
+    updateOne: {
+      filter: { _id: `${classId}_${r.memberId}_${date}` },
+      update: {
+        $set: {
+          _id: `${classId}_${r.memberId}_${date}`,
+          memberId: r.memberId,
+          classId,
+          date,
+          status: r.status,
+          note: '',
+          recordedBy: 'e2e-seed',
+          lastUpdatedBy: 'e2e-seed',
+          lastUpdatedAt: now,
+        } satisfies Attendance,
+      },
+      upsert: true,
+    },
+  }))
+
+  await db.collection<Attendance>('attendance').bulkWrite(ops)
+  res.json({ success: true, data: { count: records.length } })
 })
 
 // ─── POST /api/_test/reset-session ──────────────────────────────────────────

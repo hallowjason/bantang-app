@@ -34,23 +34,25 @@ router.post('/get-or-create', async (req: AuthenticatedRequest, res: Response): 
   const db = getDB()
   const col = db.collection<WeeklyTask>('weekly_tasks')
 
-  const existing = await col.findOne({ _id: id })
-  if (existing) {
-    res.json({ success: true, data: toDto(existing) })
-    return
-  }
-
-  const newTask: WeeklyTask = {
-    _id: id,
-    classId,
-    weekStart,
-    hostNotified: false,
-    speakerStatuses: {},
-    verifyStatuses: {},
-    notes: '',
-  }
-  await col.insertOne(newTask)
-  res.json({ success: true, data: toDto(newTask) })
+  // Use upsert to avoid duplicate-key errors from concurrent calls
+  // (React strict mode fires effects twice; both may reach here before the first insert completes)
+  await col.updateOne(
+    { _id: id },
+    {
+      $setOnInsert: {
+        _id: id,
+        classId,
+        weekStart,
+        hostNotified: false,
+        speakerStatuses: {},
+        verifyStatuses: {},
+        notes: '',
+      } satisfies WeeklyTask,
+    },
+    { upsert: true },
+  )
+  const task = (await col.findOne({ _id: id }))!
+  res.json({ success: true, data: toDto(task) })
 })
 
 // ─── PUT /api/weekly-tasks/:id — Update weekly task ──────────────────────────
