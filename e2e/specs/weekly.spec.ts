@@ -59,13 +59,36 @@ test.describe('Weekly — 本週任務', () => {
   })
 
   test('備註持久化：重新載入後備註仍保留', async ({ page }) => {
-    const { classId } = await setupLeaderOnWeekly(page)
-    const notesText = `E2E 持久化備註 ${Date.now()}`
+    // Inline setup so we can arm a waitForResponse before page.goto — the
+    // page fires its GET polls on mount and we need to catch them.
+    const classId = uniqueClassId('e2e-wkl')
+    await seedClass(classId, 'E2E Weekly Class')
+    const token = await mintE2EToken({ ...TEST_USERS.leader, classId })
 
-    // updateWeeklyTask fires on every onChange (no debounce). Previously we
-    // used waitForTimeout(600) which was flaky — the PUT could still be in
-    // flight when we reloaded, and the server would read the stale doc. Wait
-    // for the specific PUT for this classId+weekStart to complete instead.
+    // Root cause of the earlier flake: Weekly.tsx's `update()` early-returns
+    // when React's `task` state is still null. `task` is populated by a
+    // polling GET /api/weekly-tasks?classId=…&weekStart=…, which races the
+    // POST /api/weekly-tasks/get-or-create that creates the document. When
+    // the first GET wins the race it returns null; the textarea becomes
+    // visible (taskLoading=false) but `task` is null, so typing fires no PUT.
+    // Wait for a GET whose body carries a populated task before typing.
+    const taskReady = page.waitForResponse(async r => {
+      if (!/\/api\/weekly-tasks\?classId=/.test(r.url())) return false
+      if (!r.ok()) return false
+      try {
+        const body = await r.json()
+        return Boolean(body?.success) && body.data != null && typeof body.data === 'object'
+      } catch {
+        return false
+      }
+    })
+
+    await page.goto(`/weekly?e2e_token=${encodeURIComponent(token)}`)
+    await expect(page.getByRole('heading', { name: '本週任務' })).toBeVisible()
+    await expect(page.locator('textarea')).toBeVisible({ timeout: 8000 })
+    await taskReady
+
+    const notesText = `E2E 持久化備註 ${Date.now()}`
     const [putRes] = await Promise.all([
       page.waitForResponse(
         r =>
@@ -78,8 +101,8 @@ test.describe('Weekly — 本週任務', () => {
     expect(putRes.ok()).toBe(true)
 
     // Navigate back with a fresh token (re-mints user, same classId)
-    const token = await mintE2EToken({ ...TEST_USERS.leader, classId })
-    await page.goto(`/weekly?e2e_token=${encodeURIComponent(token)}`)
+    const token2 = await mintE2EToken({ ...TEST_USERS.leader, classId })
+    await page.goto(`/weekly?e2e_token=${encodeURIComponent(token2)}`)
     await expect(page.getByRole('heading', { name: '本週任務' })).toBeVisible()
     await expect(page.locator('textarea')).toBeVisible({ timeout: 8000 })
 
