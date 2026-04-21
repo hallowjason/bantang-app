@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getMembers } from '../lib/api/members'
 import { getClassAttendance } from '../lib/api/attendance'
@@ -50,8 +51,10 @@ function buildReport(params: {
 
 export default function Report() {
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
 
-  const [date, setDate]             = useState(todayStr)
+  const initialDate = searchParams.get('date') || todayStr()
+  const [date, setDate]             = useState(initialDate)
   const [members, setMembers]       = useState<Member[]>([])
   const [attendance, setAttendance] = useState<Attendance[]>([])
   const [className, setClassName]   = useState('')

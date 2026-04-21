@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getMembers, getClassInfo } from '../lib/api/members'
 import {
@@ -576,12 +577,20 @@ export default function Attendance() {
             )}
 
             {session?.isFinalized ? (
-              <button
-                onClick={handleReopen}
-                className="w-full py-3.5 rounded-2xl border-2 border-amber-400 text-amber-700 font-semibold text-sm hover:bg-amber-50 active:scale-[0.98] transition-all"
-              >
-                重新開啟補登
-              </button>
+              <div className="flex flex-col gap-2">
+                <Link
+                  to={`/report?date=${date}`}
+                  className="w-full py-3.5 rounded-2xl bg-amber-700 text-white font-semibold text-sm hover:bg-amber-800 active:scale-[0.98] transition-all shadow-md text-center"
+                >
+                  📊 產生出席報表
+                </Link>
+                <button
+                  onClick={handleReopen}
+                  className="w-full py-3.5 rounded-2xl border-2 border-amber-400 text-amber-700 font-semibold text-sm hover:bg-amber-50 active:scale-[0.98] transition-all"
+                >
+                  重新開啟補登
+                </button>
+              </div>
             ) : (
               <button
                 onClick={handleFinalize}
