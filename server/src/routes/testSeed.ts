@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { getDB } from '../db'
-import type { AppUser, UserRole, Class, Member, ClassMember, Session, Attendance } from '../types'
+import type { AppUser, UserRole, Class, Member, ClassMember, Session, Attendance, AttendanceStatus } from '../types'
 
 /**
  * Test-only seeding router. Registered on the main app ONLY when
@@ -175,7 +175,7 @@ router.post('/seed-attendance', async (req, res) => {
   const db = getDB()
   const now = new Date().toISOString()
 
-  const ops = (records as { memberId: string; status: string }[]).map(r => ({
+  const ops = (records as { memberId: string; status: AttendanceStatus }[]).map(r => ({
     updateOne: {
       filter: { _id: `${classId}_${r.memberId}_${date}` },
       update: {
