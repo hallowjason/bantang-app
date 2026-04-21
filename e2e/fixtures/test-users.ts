@@ -5,6 +5,7 @@ export interface TestUser {
   email: string
   name: string
   role: UserRole
+  classId?: string
 }
 
 export const TEST_USERS: Record<string, TestUser> = {

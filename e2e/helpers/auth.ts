@@ -17,13 +17,11 @@ function ensureAdmin(): admin.app.App {
   return admin.app()
 }
 
-const SELF_ASSIGNABLE = new Set(['leader', 'junior_leader', 'member'])
-
 /**
- * Ensure user exists in Auth Emulator and — for elevated roles that the server
- * refuses to self-assign on first login — pre-seed the MongoDB user document
- * via the emulator-gated /api/_test/seed-user endpoint. Then mint a custom
- * token so the frontend can sign in.
+ * Ensure user exists in Auth Emulator and pre-seed the MongoDB user document
+ * (role + classId) via the emulator-gated /api/_test/seed-user endpoint.
+ * Seeding unconditionally — even self-assignable roles — so tests can pin
+ * `classId` without relying on the first-login flow.
  */
 export async function mintE2EToken(user: TestUser): Promise<string> {
   ensureAdmin()
@@ -38,20 +36,19 @@ export async function mintE2EToken(user: TestUser): Promise<string> {
     })
   }
 
-  if (!SELF_ASSIGNABLE.has(user.role)) {
-    const res = await fetch(`${API_URL}/api/_test/seed-user`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        uid: user.uid,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      }),
-    })
-    if (!res.ok) {
-      throw new Error(`Failed to seed elevated user ${user.uid}: ${res.status}`)
-    }
+  const res = await fetch(`${API_URL}/api/_test/seed-user`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      uid: user.uid,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      classId: user.classId ?? '',
+    }),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to seed user ${user.uid}: ${res.status}`)
   }
 
   return auth.createCustomToken(user.uid, { intentRole: user.role })

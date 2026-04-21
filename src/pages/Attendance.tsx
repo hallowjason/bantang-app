@@ -72,6 +72,7 @@ export default function Attendance() {
   const [loading, setLoading]             = useState(true)
   const [savingSet, setSavingSet]         = useState<Set<string>>(new Set())
   const [finalizing, setFinalizing]       = useState(false)
+  const [toast, setToast]                 = useState<string | null>(null)
 
   // iccf sync state
   const [iccfSession, setIccfSession]             = useState<IccfSessionInfo | null>(null)
@@ -87,6 +88,14 @@ export default function Attendance() {
 
   // 追蹤已初始化的 classId_date，避免重複呼叫 initializeAbsentForAll
   const initializedRef = useRef<string>('')
+
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showToast = useCallback((message: string) => {
+    setToast(message)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setToast(null), 2000)
+  }, [])
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current) }, [])
 
   // ─── 載入班員（只需做一次） ──────────────────────────────
 
@@ -272,6 +281,18 @@ export default function Attendance() {
     setFinalizing(true)
     try {
       await finalizeSession(user.classId, date, user.uid)
+      // Optimistic: reflect finalized state immediately instead of waiting 4s poll.
+      setSession(prev =>
+        prev
+          ? {
+              ...prev,
+              isFinalized: true,
+              finalizedAt: new Date().toISOString(),
+              finalizedBy: user.uid,
+            }
+          : prev,
+      )
+      showToast('✓ 已完成點名')
       if (iccfClassCode && sessionId) {
         await triggerIccfSync(sessionId, topicName)
       }
@@ -344,6 +365,11 @@ export default function Attendance() {
   const handleReopen = async () => {
     if (!user?.classId) return
     await reopenSession(user.classId, date)
+    // Optimistic: clear finalized state immediately instead of waiting 4s poll.
+    setSession(prev =>
+      prev ? { ...prev, isFinalized: false, finalizedAt: undefined, finalizedBy: undefined } : prev,
+    )
+    showToast('✓ 已重新開啟')
   }
 
   // ─── 日期切換：重置初始化旗標 ────────────────────────────
@@ -377,6 +403,16 @@ export default function Attendance() {
 
   return (
     <div className="min-h-screen bg-amber-50">
+
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg"
+        >
+          {toast}
+        </div>
+      )}
 
       {showIccfLogin && (
         <IccfLoginModal

@@ -1,13 +1,10 @@
 import { Router } from 'express'
 import { getDB } from '../db'
-import type { AppUser, UserRole } from '../types'
+import type { AppUser, UserRole, Class, Member, ClassMember, Session, Attendance } from '../types'
 
 /**
- * Test-only user seeding router. Registered on the main app ONLY when
+ * Test-only seeding router. Registered on the main app ONLY when
  * FIREBASE_AUTH_EMULATOR_HOST is set (E2E / dev). Never mounted in production.
- *
- * Allows E2E tests to pre-create users with elevated roles that the normal
- * first-login flow intentionally refuses to self-assign.
  */
 const router = Router()
 
@@ -18,6 +15,8 @@ const ALL_ROLES: readonly UserRole[] = [
   'junior_leader',
   'member',
 ]
+
+// ─── POST /api/_test/seed-user ──────────────────────────────────────────────
 
 router.post('/seed-user', async (req, res) => {
   const { uid, email, name, role, classId } = req.body ?? {}
@@ -56,6 +55,123 @@ router.get('/user/:uid', async (req, res) => {
     return
   }
   res.json({ success: true, data: user })
+})
+
+// ─── POST /api/_test/seed-class ─────────────────────────────────────────────
+
+router.post('/seed-class', async (req, res) => {
+  const { classId, name, leaderIds, iccfClassCode } = req.body ?? {}
+
+  if (typeof classId !== 'string' || !classId) {
+    res.status(400).json({ success: false, error: 'classId required' })
+    return
+  }
+  if (typeof name !== 'string' || !name) {
+    res.status(400).json({ success: false, error: 'name required' })
+    return
+  }
+
+  const doc: Class = {
+    _id: classId,
+    name,
+    leaderIds: Array.isArray(leaderIds) ? leaderIds.filter((x: unknown) => typeof x === 'string') : [],
+    ...(typeof iccfClassCode === 'string' && iccfClassCode ? { iccfClassCode } : {}),
+  }
+
+  await getDB().collection<Class>('classes').updateOne(
+    { _id: classId },
+    { $set: doc },
+    { upsert: true },
+  )
+
+  res.json({ success: true, data: doc })
+})
+
+// ─── POST /api/_test/seed-members ───────────────────────────────────────────
+//
+// Body: { classId, members: [{ id, name, regionUnit?, regionNumber? }] }
+// Upserts into `members` and creates active `class_members` links.
+router.post('/seed-members', async (req, res) => {
+  const { classId, members } = req.body ?? {}
+
+  if (typeof classId !== 'string' || !classId) {
+    res.status(400).json({ success: false, error: 'classId required' })
+    return
+  }
+  if (!Array.isArray(members) || members.length === 0) {
+    res.status(400).json({ success: false, error: 'members array required' })
+    return
+  }
+
+  const db = getDB()
+  const now = new Date().toISOString()
+  const today = now.slice(0, 10)
+
+  const memberOps = members.map((m: { id: string; name: string; regionUnit?: string; regionNumber?: string }) => ({
+    updateOne: {
+      filter: { _id: m.id },
+      update: {
+        $set: {
+          _id: m.id,
+          name: m.name,
+          birthday: '',
+          initialAttendanceCount: 0,
+          mentor: '',
+          regionUnit: m.regionUnit ?? '',
+          regionNumber: m.regionNumber ?? '',
+          etiquetteItems: {},
+          notes: '',
+          createdAt: now,
+          createdBy: 'e2e-seed',
+        } satisfies Member,
+      },
+      upsert: true,
+    },
+  }))
+
+  const linkOps = members.map((m: { id: string }) => ({
+    updateOne: {
+      filter: { _id: `${classId}_${m.id}` },
+      update: {
+        $set: {
+          _id: `${classId}_${m.id}`,
+          memberId: m.id,
+          classId,
+          joinedAt: today,
+          addedBy: 'e2e-seed',
+          isActive: true,
+        } satisfies ClassMember,
+      },
+      upsert: true,
+    },
+  }))
+
+  await db.collection<Member>('members').bulkWrite(memberOps)
+  await db.collection<ClassMember>('class_members').bulkWrite(linkOps)
+
+  res.json({ success: true, data: { count: members.length } })
+})
+
+// ─── POST /api/_test/reset-session ──────────────────────────────────────────
+//
+// Body: { classId, date }
+// Wipes session + attendance rows for that class/date so a test can start clean.
+router.post('/reset-session', async (req, res) => {
+  const { classId, date } = req.body ?? {}
+
+  if (typeof classId !== 'string' || !classId || typeof date !== 'string' || !date) {
+    res.status(400).json({ success: false, error: 'classId and date required' })
+    return
+  }
+
+  const db = getDB()
+  const sessionId = `${classId}_${date}`
+  await Promise.all([
+    db.collection<Session>('sessions').deleteOne({ _id: sessionId }),
+    db.collection<Attendance>('attendance').deleteMany({ classId, date }),
+  ])
+
+  res.json({ success: true })
 })
 
 export default router
