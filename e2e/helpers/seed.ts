@@ -9,6 +9,7 @@ const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3101'
 export interface SeedMember {
   id: string
   name: string
+  birthday?: string
   regionUnit?: string
   regionNumber?: string
 }
@@ -34,6 +35,14 @@ export async function seedClass(
 
 export async function seedMembers(classId: string, members: SeedMember[]): Promise<void> {
   await postJson('/api/_test/seed-members', { classId, members })
+}
+
+export async function seedAttendance(
+  classId: string,
+  date: string,
+  records: { memberId: string; status: 'present' | 'leave' | 'absent' }[],
+): Promise<void> {
+  await postJson('/api/_test/seed-attendance', { classId, date, records })
 }
 
 export async function resetSession(classId: string, date: string): Promise<void> {
