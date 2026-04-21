@@ -96,9 +96,12 @@ test.describe('Admin — /admin CRUD flows', () => {
     // identifiable by placeholder.
     const updated = `E2E Edit Updated ${classId}`
     await page.locator('input:not([placeholder])').first().fill(updated)
-    await page.getByPlaceholder('2026光明').fill('2026測試')
-    await page.getByPlaceholder('禮行').fill('光明')
-    await page.getByPlaceholder('B3000549').fill('B9999999')
+    // Use exact-match placeholders: the new-class input placeholder
+    // `班級名稱（例：光明禮行班）` contains the substring `禮行`, so the loose
+    // match collides with the edit form's `禮行` input.
+    await page.getByPlaceholder('2026光明', { exact: true }).fill('2026測試')
+    await page.getByPlaceholder('禮行', { exact: true }).fill('光明')
+    await page.getByPlaceholder('B3000549', { exact: true }).fill('B9999999')
 
     await page.getByRole('button', { name: /^儲存$/ }).click()
 
@@ -139,7 +142,7 @@ test.describe('Admin — /admin CRUD flows', () => {
     await expect(page.getByText(juniorName)).not.toBeVisible()
   })
 
-  test('變更 user role：select → ✓ 已儲存 + 後端持久化', async ({ page }) => {
+  test('變更 user role：select → PUT 完成 + 後端持久化', async ({ page }) => {
     const stamp = Date.now()
     const uid = `e2e-target-${stamp}`
     const targetName = `E2E Target ${stamp}`
@@ -158,12 +161,20 @@ test.describe('Admin — /admin CRUD flows', () => {
     const card = page
       .locator('div.bg-white')
       .filter({ hasText: targetName })
-    await card.locator('select').first().selectOption('leader')
 
-    // ✓ 已儲存 appears for ~1.5 s after the PUT resolves.
-    await expect(card.getByText('✓ 已儲存')).toBeVisible({ timeout: 5000 })
+    // Wait for the PUT to resolve — the ✓ 已儲存 flash is too short (1.5 s)
+    // to reliably catch with toBeVisible polling.
+    const [putRes] = await Promise.all([
+      page.waitForResponse(
+        r =>
+          r.url().includes(`/api/admin/users/${uid}`) &&
+          r.request().method() === 'PUT',
+      ),
+      card.locator('select').first().selectOption('leader'),
+    ])
+    expect(putRes.ok()).toBe(true)
 
-    // Verify via emulator-only test endpoint.
+    // Verify persistence via emulator-only test endpoint.
     const res = await fetch(`${API_URL}/api/_test/user/${uid}`)
     const body = await res.json()
     expect(body.success).toBe(true)
