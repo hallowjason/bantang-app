@@ -62,9 +62,20 @@ test.describe('Weekly — 本週任務', () => {
     const { classId } = await setupLeaderOnWeekly(page)
     const notesText = `E2E 持久化備註 ${Date.now()}`
 
-    await page.locator('textarea').fill(notesText)
-    // updateWeeklyTask fires immediately on fill — give server time to persist
-    await page.waitForTimeout(600)
+    // updateWeeklyTask fires on every onChange (no debounce). Previously we
+    // used waitForTimeout(600) which was flaky — the PUT could still be in
+    // flight when we reloaded, and the server would read the stale doc. Wait
+    // for the specific PUT for this classId+weekStart to complete instead.
+    const [putRes] = await Promise.all([
+      page.waitForResponse(
+        r =>
+          /\/api\/weekly-tasks\/[^/?#]+$/.test(r.url()) &&
+          r.request().method() === 'PUT' &&
+          r.url().includes(classId),
+      ),
+      page.locator('textarea').fill(notesText),
+    ])
+    expect(putRes.ok()).toBe(true)
 
     // Navigate back with a fresh token (re-mints user, same classId)
     const token = await mintE2EToken({ ...TEST_USERS.leader, classId })
