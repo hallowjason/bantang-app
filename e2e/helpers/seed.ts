@@ -1,3 +1,9 @@
+/**
+ * E2E seed helpers. Call the emulator-gated `/api/_test/*` endpoints on the
+ * bantang-server — those routes are ONLY mounted when
+ * `FIREBASE_AUTH_EMULATOR_HOST` is set (see server/src/index.ts), so these
+ * helpers are unusable (and the target endpoints nonexistent) in production.
+ */
 const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3101'
 
 export interface SeedMember {

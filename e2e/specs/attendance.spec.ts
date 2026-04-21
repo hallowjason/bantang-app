@@ -108,11 +108,9 @@ test.describe('Attendance — three-state cycle + finalize + reopen', () => {
     await page.getByRole('button', { name: '完成點名' }).click()
     await expect(page.getByRole('button', { name: '重新開啟補登' })).toBeVisible()
 
-    // Button is disabled post-finalize; clicking should be no-op
-    await memberRow(page, a.name).click({ force: true }).catch(() => { /* disabled */ })
-
-    // Status remains 出席 — give it a moment to (not) change
-    await page.waitForTimeout(500)
+    // Post-finalize the row button is disabled; assert that directly instead
+    // of forcing a click and polling for non-change.
+    await expect(memberRow(page, a.name)).toBeDisabled()
     expect(await getStatus(page, a.name)).toBe('出席')
   })
 
