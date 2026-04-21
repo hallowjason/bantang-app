@@ -1,7 +1,7 @@
 import { Router, Response } from 'express'
 import { getDB } from '../db'
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
-import type { Attendance, Member, WeeklyTask } from '../types'
+import type { Attendance, ClassMember, Member, WeeklyTask } from '../types'
 
 const router = Router()
 router.use(requireAuth)
@@ -55,16 +55,22 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
 
   const db = getDB()
 
-  // Fetch attendance records in range + weekly task notes in parallel
-  const [records, members, weeklyTasks] = await Promise.all([
+  // Fetch attendance records in range, active class-member links, and weekly task notes in parallel
+  const [records, classMemberLinks, weeklyTasks] = await Promise.all([
     db.collection<Attendance>('attendance')
       .find({ classId, date: { $gte: fromDate, $lte: toDate } })
       .toArray(),
-    db.collection<Member>('members').find().toArray(),
+    db.collection<ClassMember>('class_members')
+      .find({ classId, isActive: true })
+      .toArray(),
     db.collection<WeeklyTask>('weekly_tasks')
       .find({ classId, weekStart: { $in: weeks } })
       .toArray(),
   ])
+  const memberIds = classMemberLinks.map(cm => cm.memberId)
+  const members = memberIds.length > 0
+    ? await db.collection<Member>('members').find({ _id: { $in: memberIds } }).toArray()
+    : []
 
   const notesMap = new Map(weeklyTasks.map(t => [t.weekStart, t.notes ?? '']))
 
