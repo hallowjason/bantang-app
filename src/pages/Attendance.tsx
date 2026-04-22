@@ -13,7 +13,7 @@ import {
   reopenSession,
   subscribeToSession,
 } from '../lib/api/sessions'
-import { iccfGetCurrentSessions, type IccfLoginResult, type IccfSessionInfo } from '../lib/api/iccfSession'
+import { iccfGetCurrentSessions, iccfLogout, type IccfLoginResult, type IccfSessionInfo } from '../lib/api/iccfSession'
 import { createIccfSyncJob, pollIccfSyncJob, type SyncJob } from '../lib/api/iccfSync'
 import { getScheduleCache } from '../lib/google/schedule'
 import { getWeekStart } from '../lib/api/weekly'
@@ -82,6 +82,7 @@ export default function Attendance() {
   const [pendingSessionId, setPendingSessionId]   = useState<string | undefined>()
   const [defaultTopic, setDefaultTopic]           = useState('')
   const [iccfSyncJob, setIccfSyncJob]             = useState<SyncJob | null>(null)
+  const [iccfSyncNotice, setIccfSyncNotice]       = useState<{ level: 'error' | 'warn' | 'info'; text: string } | null>(null)
   const [pendingFinalize, setPendingFinalize]     = useState(false)
   // Holds topicName when finalize already done but iccf sync failed due to expired session
   const [pendingIccfSync, setPendingIccfSync]     = useState<{ topicName: string } | null>(null)
@@ -242,6 +243,7 @@ export default function Attendance() {
   // Trigger iccf sync job after finalize. Can be called standalone on session-expired retry.
   const triggerIccfSync = async (sessionId: string, topicName: string, force = false) => {
     if (!user?.classId) return
+    setIccfSyncNotice(null)
     try {
       const resp = await createIccfSyncJob({ classId: user.classId, date, sessionId, topicName, force })
       if (resp.sessionExpired) {
@@ -271,9 +273,15 @@ export default function Attendance() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         })
+        return
       }
-    } catch {
-      // iccf sync failure is non-blocking
+      // jobId === null without sessionExpired/alreadySynced — server returned a non-error skip
+      if (resp.message) {
+        setIccfSyncNotice({ level: 'info', text: `iccf 未同步：${resp.message}` })
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '未知錯誤'
+      setIccfSyncNotice({ level: 'error', text: `iccf 同步失敗：${msg}` })
     }
   }
 
@@ -294,8 +302,15 @@ export default function Attendance() {
           : prev,
       )
       showToast('✓ 已完成點名')
-      if (iccfClassCode && sessionId) {
-        await triggerIccfSync(sessionId, topicName)
+      if (iccfClassCode) {
+        if (sessionId) {
+          await triggerIccfSync(sessionId, topicName)
+        } else {
+          setIccfSyncNotice({
+            level: 'warn',
+            text: 'iccf 未同步：尚未登入 iccf 帳號，請登入後再送出',
+          })
+        }
       }
     } finally {
       setFinalizing(false)
@@ -359,6 +374,19 @@ export default function Attendance() {
   const handleTopicConfirm = async (topicName: string) => {
     setShowTopicConfirm(false)
     await doFinalize(pendingSessionId ?? '', topicName)
+  }
+
+  // Proactive iccf logout (clears server-side cookie jar too)
+  const handleIccfLogout = async () => {
+    if (!iccfSession?.sessionId) return
+    try {
+      await iccfLogout(iccfSession.sessionId)
+    } catch {
+      // swallow — always clear client state so user isn't stuck
+    }
+    setIccfSession(null)
+    setIccfSyncNotice(null)
+    showToast('✓ 已登出 iccf')
   }
 
   // ─── 重新開啟（補登） ────────────────────────────────────
@@ -565,13 +593,52 @@ export default function Attendance() {
               </div>
             )}
 
-            {/* iccf session indicator (when enabled and session present) */}
-            {iccfClassCode && !session?.isFinalized && (
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${iccfSession ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                <span className={iccfSession ? 'text-blue-500' : 'text-gray-400'}>
-                  {iccfSession ? `iccf 已登入（完成點名時自動同步）` : `完成點名時將要求登入 iccf`}
-                </span>
+            {/* iccf sync notice — job-less failure paths (400, warn, skip info) */}
+            {iccfSyncNotice && !iccfSyncJob?.jobId && (
+              <div className={`text-xs rounded-xl px-3 py-2 flex items-start justify-between gap-2 ${
+                iccfSyncNotice.level === 'error'
+                  ? 'bg-red-50 text-red-600 border border-red-200'
+                  : iccfSyncNotice.level === 'warn'
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                    : 'bg-blue-50 text-blue-600 border border-blue-200'
+              }`}>
+                <span className="flex-1">{iccfSyncNotice.text}</span>
+                <button
+                  onClick={() => setIccfSyncNotice(null)}
+                  className="shrink-0 opacity-60 hover:opacity-100 px-1"
+                  aria-label="關閉"
+                >×</button>
+              </div>
+            )}
+
+            {/* iccf session indicator + login/logout — always visible when not finalized */}
+            {!session?.isFinalized && (
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${iccfSession ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                  <span className={`truncate ${iccfSession ? 'text-blue-500' : 'text-gray-400'}`}>
+                    {iccfSession
+                      ? `iccf 已登入${iccfSession.profile?.name ? `（${iccfSession.profile.name}）` : ''}`
+                      : iccfClassCode
+                        ? '完成點名時將要求登入 iccf'
+                        : '尚未綁定 iccf；登入後自動綁定此班'}
+                  </span>
+                </div>
+                {iccfSession ? (
+                  <button
+                    onClick={handleIccfLogout}
+                    className="text-xs text-muted underline shrink-0"
+                  >
+                    登出
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowIccfLogin(true)}
+                    className="text-xs text-ink font-medium shrink-0 underline"
+                  >
+                    登入 iccf
+                  </button>
+                )}
               </div>
             )}
 

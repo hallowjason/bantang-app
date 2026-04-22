@@ -1,73 +1,70 @@
-# Session Context — 2026-04-22 17:50
+# Session Context — 2026-04-22 iccf 修正
 
 ## 專案路徑
-主 repo：`/Users/gooo/Desktop/.claude/projects/bantang-app`（main HEAD `1171c40`）
+/Users/gooo/Desktop/.claude/projects/bantang-app (branch: main)
 
-## main 目前頂端
-```
-1171c40 test: align E2E selectors with Lovable emoji-less labels (#17)
-140a46a refactor(ui): Phase 3c — Lovable design system migration + dev auth bypass (#16)
-6cac831 test: wait for weekly task GET before typing to fix flaky notes spec (#15)
-```
+## 本次 session 摘要
 
-**CI 狀態：Build Check + E2E Tests 全綠。Zeabur bantang-api RUNNING、API 正常回應。**
+用戶回報兩個 iccf 同步相關 bug：
 
-## 2026-04-22 Session 完成（Zeabur 清理 2/3）
+### 問題 1：一般領班看不到 iccf 登入入口（雞生蛋）
+- 點名頁 iccf UI 被 `iccfClassCode` gated，但這個欄位只有靠 server 的 `backfillIccfClassCode` 在領班登入 iccf 成功後才會自動回寫
+- Admin iccf tab 又只給 `head_leader / class_master`
+- 一般領班永遠沒辦法登入 → class doc 永遠缺 iccfClassCode → UI 永遠不顯示 → 一般領班永遠沒辦法登入
 
-### ✅ Task 1 — 刪除 `bantang-api` 重複 `MONGODB_HOST`
-- 原有兩筆 key=`MONGODB_HOST` value=`service-69c8f16da972bb88a76361df`
-- 用 `delete-environment-variable` 刪一次，剩一筆（Zeabur 不支援依索引刪除，但同 key 重複刪一次只會移除一筆）
+### 問題 2：許眾棠完成點名但 iccf 沒更新
+- 沒有排程送出；sync 是 in-memory 非同步 job
+- 多條 silent-failure 路徑：
+  1. `iccfClassCode` 空 → 完全不跑 sync
+  2. `triggerIccfSync` 的 `catch { /* ignore */ }` 吞掉 400 / 403 錯誤
+  3. session 過期 → 要求再登入，用戶若離開就斷了
+  4. 伺服器重啟 → in-memory jobs Map 全清空
+- Firebase finalize 先成功、toast 顯示「✓ 已完成點名」騙了用戶，但 iccf 實際沒寫入
 
-### ✅ Task 2 — `MONGODB_URI` 硬編 IP → 內部 DNS
-- 舊：`mongodb://mongo:***@172.104.105.153:30097/sjjbclass?authSource=admin`（外部 NodePort）
-- 新：`mongodb://mongo:***@${MONGODB_HOST}:27017/sjjbclass?authSource=admin`（Zeabur 內部 DNS，container 注入時展開為 `service-69c8f16da972bb88a76361df:27017`）
-- 改前驗證：DNS 解析 → `10.43.243.112`、TCP 27017 可達
-- **Pod restart 過程（重要教訓）**：
-  - `kill 1` / `kill -9 1` 從容器內發無效（PID namespace 保護 pid 1）
-  - env var 改動本身**不會觸發 pod 重啟**
-  - 最後用 `update-service-ports`（同值 `[{id:"web",port:8080,type:"HTTP"}]`）觸發 spec reconcile 才讓 K8s 重建 pod
-  - 驗證 `/proc/1/stat` starttime 從 202644614 → 218059932 = 新 pod
+## 上次完成（Pass 1 — commit 於本次 session）
 
-### ⏭ Task 3（留給用戶）— 輪替 `FIREBASE_SERVICE_ACCOUNT_B64`
-- 目前未輪替。Zeabur MCP 沒有 Firebase Console 能力，需手動操作
-- 若沒有外洩疑慮可**不做**
-- 流程：Firebase Console → Project Settings → Service Accounts → 產生新 private key → base64 encode → 用 `update-environment-variable` 更新 Zeabur → 觸發 redeploy（推一個 server/** 空 commit 或再跑 update-service-ports）→ revoke 舊 key
+全部改在 `src/pages/Attendance.tsx`：
 
-## Zeabur MCP 操作心得（下次遇到要用）
-- **env var 變更不會自動重啟 pod**；container 繼續跑舊值
-- **在 container 內 `kill` pid 1 無效**（kernel drop signal）
-- **觸發 pod 重建的方式**：`update-service-ports`（同值即可）/ `deploy-from-specification` / 推 server/** 到 GitHub 觸發 CI 重 build image
-- `get-runtime-logs` 只顯示 Zeabur pod 事件（如 ImagePullBackOff），看不到 Node app 本身 stdout；app 行為判斷靠 `curl` HTTP 狀態或 `execute-command` 進容器 debug
-- `execute-command` 走 busybox sh，沒有 `/dev/tcp`，要測 TCP 連線用 `node -e`
+**問題 1：**
+- import 加 `iccfLogout`
+- Session 指示器拿掉 `iccfClassCode` gate，改三態顯示（已登入 / 未登入+已綁定 / 未綁定）
+- 新增獨立「登入 iccf / 登出」按鈕（只要未 finalized 永遠可見）
+- 新增 `handleIccfLogout` 函式
 
-## 樣式改動 SOP（長期規則）
+**問題 2：**
+- 新增 `iccfSyncNotice` state (`{ level: 'error'|'warn'|'info', text }`)
+- `triggerIccfSync`：catch error 改成塞進 notice（紅色）；新處理 `jobId: null + message` info 路徑
+- `doFinalize`：iccfClassCode 設了但沒 sessionId 時顯示 warn notice（琥珀色）
+- UI 加 notice 面板（可關閉 ×）
 
-凡涉及 UI class 名 / text label / button 文案 / component 樣式：
-1. 本機改 + 每段跑 `tsc --noEmit` / `npm run build`
-2. **改 UI 前先 grep E2E**：`grep -rnE 'locator.*(bg-white|bg-sky|text-sky)|getByRole.*name.*<舊字串>' e2e/` — 有命中就同一個 PR 一起改
-3. preview_start + screenshot 給用戶看
-4. Commit + push + 開 PR
-5. **等 CI 綠燈再 merge**，禁用 `gh pr merge --auto`（此 repo 會立刻合併不等 CI）
-6. Merge 後看 main CI 也綠
+驗證：`tsc --noEmit` ✓、`npm run build` ✓、preview runtime 無 React error
+⚠️ preview 無法完整驗收 iccf panel（後端沒跑 + 無 seed data，`members.length > 0` gate 擋住 footer）
 
-**禁用習慣：**
-- 不靠 preview 視覺 OK 就 merge（preview 不跑 E2E）
-- 不加裝飾性 emoji 到 UI label（Lovable 設計決策）
-- 不寫 `text-[Xpx]` 任意值（只用 `text-xs/sm/base/lg/xl`）
+## 待辦 / 未完成
+
+### Pass 2：完成點名後若 iccf 沒同步，顯示「重新送出 iccf」按鈕
+- 目的：讓「已 finalized 但 iccf 失敗」的班期可以後補同步，不用「重新開啟補登」
+- 做法：在 finalized 狀態下（現在只有「產生出席報表」+「重新開啟補登」）加第三個按鈕
+- 需要判斷「已 finalized 但 `iccfSyncedAt` 未寫入」→ 顯示按鈕
+- 按鈕行為：呼叫現有的 `triggerIccfSync`（force 或非 force 皆可），會觸發 server 的 ensureAlive 檢查 session 存活
+- server 端現有 `force` 路徑已支援「已同步過」的 override，所以 Pass 2 基本上只是把 UI 按鈕接到現有流程
+
+### Pass 3（策略層面，未決定要不要做）
+- **iccf 失敗時是否不標 Firebase finalized？** 風險：iccf 持續掛掉時用戶永遠無法「完成」；建議不做，改用 Pass 2 的 retry 按鈕
+- **in-memory job store 搬 MongoDB？** 避免 server 重啟 job 掉。現有的 `jobs = new Map()` 在 `server/src/jobs/iccfSyncWorker.ts`
 
 ## 重要決策與限制
-- **Lovable 刻意去 emoji**：heading/button 不放裝飾 emoji，但語意 emoji（`✓ 已儲存` / `✕` 關閉）保留
-- **字級三階統一**：`text-xs` (12) / `text-sm` (14) / `text-base` (16)；標題用 `text-lg` / `text-xl`
-- **Dev auth bypass**：改 `.env.local` 的 `role` 欄位後**要重啟 dev server**（Vite 不 HMR env 變數）
-- **E2E 選擇器**：tab 類 button 用 anchored regex（`/^班級$/`）避免 `iccf` substring 衝突；card 選擇器用 `div.card-lovable`
-- **auto-merge 行為**：此 repo 設定不等 CI 就合併，高風險改動要手動確認 CI 綠再 merge
-- **iccf 自動點名腳本**：獨立於此 repo 的 Apps Script，串接 `bantang-api.zeabur.app`，重啟 API 時要避免 downtime（本次 K8s rolling 零 downtime）
 
-## 待辦
-- (可選) Task 3 Firebase key 輪替
+- 不要動 server 端（除非 Pass 3 決議動）
+- iccfSyncNotice 用單一 state 而不是多個，避免狀態擴散
+- 後端 API (`/api/iccf/sync`) 已經有 `force` 參數支援重新送出，不用再加後端 route
+- `apiPost` 會吞掉 server response 的 `code` 欄位，只保留 `error` message —— 如果 Pass 2/3 需要 code 判斷，要先改 `client.ts`
+- server 端 `createIccfSyncJob` 裡的 `findInFlightJob` 會去重，同一個 `(classId, date)` 不會重複跑
+- Session 資料結構（bantang 端 `Session`）已有 `iccfSyncedAt` 欄位，worker 成功後會回寫 MongoDB 的 sessions doc
 
-## 下次繼續的指令
+## 下次繼續
+
 ```
 cd /Users/gooo/Desktop/.claude/projects/bantang-app
-git checkout main && git pull
+# 告訴 Claude：「繼續上次的工作，做 Pass 2」
 ```
