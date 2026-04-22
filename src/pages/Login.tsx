@@ -23,22 +23,19 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-amber-50 px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8 flex flex-col items-center gap-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-cream px-4">
+      <div className="w-full max-w-sm card-lovable flex flex-col items-center gap-6 py-10">
         {/* 標題 */}
         <div className="flex flex-col items-center gap-2">
-          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-3xl">
-            🏮
-          </div>
-          <h1 className="text-2xl font-bold text-amber-800">佛堂進階班</h1>
-          <p className="text-sm text-gray-500 text-center">
+          <h1 className="text-2xl font-semibold text-ink tracking-tight">SJJB</h1>
+          <p className="text-sm text-muted text-center">
             出席管理平台
           </p>
         </div>
 
         {/* 錯誤訊息 */}
         {error && (
-          <p className="w-full text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-center">
+          <p className="w-full text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-2 text-center">
             {error}
           </p>
         )}
@@ -47,7 +44,7 @@ export default function Login() {
         <button
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-ghost w-full py-3"
         >
           {/* Google SVG Icon */}
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -71,14 +68,14 @@ export default function Login() {
           {loading ? '登入中...' : '使用 Google 帳號登入'}
         </button>
 
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-muted text-center">
           僅限受邀領班使用
         </p>
 
         {/* 初始設定入口 */}
-        <p className="text-xs text-gray-300 text-center">
+        <p className="text-xs text-muted text-center">
           首次使用？
-          <Link to="/setup" className="text-amber-600 hover:underline ml-1">
+          <Link to="/setup" className="text-ink underline ml-1">
             點此進行初始設定
           </Link>
         </p>

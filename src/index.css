@@ -1,15 +1,250 @@
 @import "tailwindcss";
 
-/* ─── 全域字型：Noto Serif TC ───────────────────────────── */
+/* ─── Lovable Design Tokens (Phase 1) ─────────────────────
+   - Charcoal / cream palette derived from #1c1c1c at opacity stops
+   - fontSize 全域 +4px（Tailwind text-* utility 會自動套用）
+   - 中文 Noto Sans TC 黑體 + 西文 Inter
+*/
+@theme {
+  /* Colors */
+  --color-cream: #f7f4ed;
+  --color-cream-surface: #fcfbf8;
+  --color-ink: #1c1c1c;
+  --color-ink-strong: rgba(28, 28, 28, 0.83);
+  --color-ink-body: rgba(28, 28, 28, 0.82);
+  --color-muted: #5f5f5d;
+  --color-border-interactive: rgba(28, 28, 28, 0.4);
+  --color-hairline: #eceae4;
+  --color-tint-hover: rgba(28, 28, 28, 0.04);
+  --color-tint-subtle: rgba(28, 28, 28, 0.03);
+
+  /* Typography */
+  --font-sans: "Inter", "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
+
+  /* Font Sizes +4px (原 Tailwind default → 放大版) */
+  --text-xs: 1rem;          /* 12 → 16 */
+  --text-xs--line-height: 1.5rem;
+  --text-sm: 1.125rem;      /* 14 → 18 */
+  --text-sm--line-height: 1.625rem;
+  --text-base: 1.25rem;     /* 16 → 20 */
+  --text-base--line-height: 1.875rem;
+  --text-lg: 1.375rem;      /* 18 → 22 */
+  --text-lg--line-height: 2rem;
+  --text-xl: 1.5rem;        /* 20 → 24 */
+  --text-xl--line-height: 2rem;
+  --text-2xl: 1.75rem;      /* 24 → 28 */
+  --text-2xl--line-height: 2.25rem;
+  --text-3xl: 2.125rem;     /* 30 → 34 */
+  --text-3xl--line-height: 2.5rem;
+  --text-4xl: 2.5rem;       /* 36 → 40 */
+  --text-4xl--line-height: 2.75rem;
+  --text-5xl: 3.25rem;      /* 48 → 52 */
+  --text-5xl--line-height: 1;
+  --text-6xl: 4rem;         /* 60 → 64 */
+  --text-6xl--line-height: 1;
+}
+
 @layer base {
   html {
-    font-family: 'Noto Serif TC', system-ui, sans-serif;
-    /* 防止 iOS Safari 在 focus input 時自動縮放（最小 16px） */
+    font-family: var(--font-sans);
     font-size: 16px;
+    color: var(--color-ink);
+    background-color: var(--color-cream);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* iOS Safe Area：底部留空給 Home Indicator */
   body {
+    background-color: var(--color-cream);
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* 標題預設粗度 600（Lovable 最大字重，不得 700） */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ─── Lovable Component Utilities (Phase 3a) ─────────────────
+   - 以 @layer components 註冊，可被 Tailwind utility 覆寫
+   - Button: primary（深色 inset shadow）/ ghost（透明 + interactive border）/ cream（cream surface）
+   - Card: cream bg + hairline border，不用 shadow
+   - Input: cream bg + hairline border + focus ring
+   - Badge: cream 底 + hairline border，可搭配 accent dot
+*/
+@layer components {
+  /* Buttons */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem; /* 6px */
+    background-color: var(--color-ink);
+    color: var(--color-cream-surface);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    line-height: 1.5;
+    box-shadow:
+      rgba(255, 255, 255, 0.2) 0 0.5px 0 0 inset,
+      rgba(0, 0, 0, 0.2) 0 0 0 0.5px inset,
+      rgba(0, 0, 0, 0.05) 0 1px 2px 0;
+    transition: opacity 0.15s ease;
+  }
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+  .btn-primary:active {
+    opacity: 0.8;
+  }
+  .btn-primary:focus-visible {
+    outline: none;
+    box-shadow:
+      rgba(255, 255, 255, 0.2) 0 0.5px 0 0 inset,
+      rgba(0, 0, 0, 0.2) 0 0 0 0.5px inset,
+      rgba(0, 0, 0, 0.1) 0 4px 12px;
+  }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    background-color: transparent;
+    color: var(--color-ink);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    line-height: 1.5;
+    border: 1px solid var(--color-border-interactive);
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+  }
+  .btn-ghost:hover {
+    background-color: var(--color-tint-hover);
+  }
+  .btn-ghost:active {
+    opacity: 0.8;
+  }
+  .btn-ghost:focus-visible {
+    outline: none;
+    box-shadow: rgba(0, 0, 0, 0.1) 0 4px 12px;
+  }
+  .btn-ghost:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-cream {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    line-height: 1.5;
+    border: 1px solid var(--color-hairline);
+    transition: background-color 0.15s ease;
+  }
+  .btn-cream:hover {
+    background-color: var(--color-tint-hover);
+  }
+  .btn-cream:active {
+    opacity: 0.8;
+  }
+  .btn-cream:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Cards */
+  .card-lovable {
+    background-color: var(--color-cream);
+    border: 1px solid var(--color-hairline);
+    border-radius: 0.75rem; /* 12px */
+    padding: 1.25rem;
+  }
+  .card-lovable-compact {
+    background-color: var(--color-cream);
+    border: 1px solid var(--color-hairline);
+    border-radius: 0.5rem; /* 8px */
+    padding: 0.75rem 1rem;
+  }
+
+  /* Inputs */
+  .input-lovable {
+    width: 100%;
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    border: 1px solid var(--color-hairline);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .input-lovable::placeholder {
+    color: var(--color-muted);
+  }
+  .input-lovable:focus {
+    outline: none;
+    border-color: var(--color-border-interactive);
+    box-shadow: rgba(0, 0, 0, 0.1) 0 4px 12px;
+  }
+  .input-lovable:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Badge — cream 底 + hairline border，透過 dot 色彩表達狀態 */
+  .badge-lovable {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    border: 1px solid var(--color-hairline);
+    font-size: var(--text-xs);
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  .badge-lovable .badge-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background-color: var(--color-ink);
+    flex-shrink: 0;
+  }
+
+  /* Nav link — 文字型導航 */
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    font-size: var(--text-sm);
+    color: var(--color-muted);
+    border-radius: 0.375rem;
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+  .nav-link:hover {
+    color: var(--color-ink);
+    background-color: var(--color-tint-hover);
+  }
+  .nav-link-active {
+    color: var(--color-ink);
+    font-weight: 600;
   }
 }

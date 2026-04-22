@@ -25,8 +25,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-amber-50">
-        <p className="text-gray-400 text-sm">載入中...</p>
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <p className="text-muted text-sm">載入中...</p>
       </div>
     )
   }

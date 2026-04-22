@@ -393,17 +393,17 @@ export default function Attendance() {
 
   if (!loading && !user?.classId) {
     return (
-      <div className="min-h-screen bg-amber-50 flex items-center justify-center px-4 pb-16">
-        <p className="text-sm text-amber-700 bg-white border border-amber-200 rounded-xl px-5 py-4 text-center shadow-sm">
+      <div className="min-h-screen bg-cream flex items-center justify-center px-4 pb-16">
+        <p className="text-sm text-ink card-lovable text-center">
           尚未設定所屬班級<br />
-          <span className="text-gray-400">請聯絡管理員</span>
+          <span className="text-muted">請聯絡管理員</span>
         </p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-amber-50">
+    <div className="min-h-screen bg-cream">
 
       {toast && (
         <div
@@ -432,37 +432,38 @@ export default function Attendance() {
       )}
 
       {/* ── Header + 進度列 ── */}
-      <header className="bg-white border-b border-amber-100 sticky top-0 z-10">
+      <header className="bg-cream border-b border-hairline sticky top-0 z-10">
 
         {/* 標題列 */}
         <div className="max-w-screen-sm mx-auto px-4 pt-3 pb-2 flex items-center justify-between gap-3">
-          <h1 className="text-base font-bold text-gray-800 shrink-0">點名</h1>
+          <h1 className="text-base font-semibold text-ink shrink-0 tracking-tight">點名</h1>
           <input
             type="date"
             value={date}
             max={todayStr()}
             onChange={e => handleDateChange(e.target.value)}
-            className="text-sm text-gray-700 border border-amber-200 rounded-lg px-2.5 py-1 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="input-lovable w-auto text-sm px-2.5 py-1"
           />
         </div>
 
         {/* 進度列 */}
         <div className="max-w-screen-sm mx-auto px-4 pb-3">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-muted">
               已確認{' '}
-              <span className="font-semibold text-amber-700">{checkedCount}</span>
+              <span className="font-semibold text-ink">{checkedCount}</span>
               {' '}/ {total} 人
             </span>
             {session?.isFinalized && (
-              <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                ✓ 已完成
+              <span className="badge-lovable">
+                <span className="badge-dot" style={{ backgroundColor: '#16a34a' }} />
+                已完成
               </span>
             )}
           </div>
-          <div className="h-1.5 bg-amber-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-hairline rounded-full overflow-hidden">
             <div
-              className="h-full bg-amber-500 rounded-full transition-all duration-500"
+              className="h-full bg-ink rounded-full transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -473,13 +474,12 @@ export default function Attendance() {
       <main className="max-w-screen-sm mx-auto px-4 pt-4 pb-36">
         {loading ? (
           <div className="flex justify-center py-20">
-            <p className="text-gray-400 text-sm">載入中...</p>
+            <p className="text-muted text-sm">載入中...</p>
           </div>
         ) : members.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-5xl mb-4">👥</p>
-            <p className="text-gray-500 font-medium">尚無班員</p>
-            <p className="text-gray-400 text-sm mt-1">請先至「班員」頁面新增班員</p>
+            <p className="text-ink font-semibold">尚無班員</p>
+            <p className="text-muted text-sm mt-1">請先至「班員」頁面新增班員</p>
           </div>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -497,13 +497,12 @@ export default function Attendance() {
                     disabled={isFinalized || isSaving}
                     className={`
                       w-full flex items-center justify-between gap-3
-                      bg-white rounded-2xl shadow-sm border px-5 py-4
+                      card-lovable-compact py-4
                       transition-all active:scale-[0.98] select-none
-                      ${isFinalized ? 'opacity-60 cursor-default' : 'hover:bg-amber-50'}
-                      ${style.border}
+                      ${isFinalized ? 'opacity-60 cursor-default' : 'hover:bg-[var(--color-tint-hover)]'}
                     `}
                   >
-                    <span className="font-medium text-gray-800 text-left flex-1">
+                    <span className="font-medium text-ink text-left flex-1">
                       {member.name}
                     </span>
                     <span
@@ -528,7 +527,7 @@ export default function Attendance() {
       {/* ── 完成點名 / 重新開啟 — 固定在 BottomNav 上方 ── */}
       {!loading && members.length > 0 && (
         <div className="fixed bottom-16 left-0 right-0 z-10">
-          <div className="max-w-screen-sm mx-auto px-4 py-3 bg-white/90 backdrop-blur-sm border-t border-amber-100 flex flex-col gap-2">
+          <div className="max-w-screen-sm mx-auto px-4 py-3 bg-cream/90 backdrop-blur-sm border-t border-hairline flex flex-col gap-2">
 
             {/* iccf sync status */}
             {iccfSyncJob && iccfSyncJob.jobId && (
@@ -549,7 +548,7 @@ export default function Attendance() {
                 )}
                 {iccfSyncJob.status === 'failed' && iccfSyncJob.errorCode === 'session_expired' && (
                   <span>
-                    ⚠ iccf session 已過期
+                    iccf session 已過期
                     <button
                       className="ml-2 underline font-semibold"
                       onClick={() => {
@@ -580,13 +579,13 @@ export default function Attendance() {
               <div className="flex flex-col gap-2">
                 <Link
                   to={`/report?date=${date}`}
-                  className="w-full py-3.5 rounded-2xl bg-amber-700 text-white font-semibold text-sm hover:bg-amber-800 active:scale-[0.98] transition-all shadow-md text-center"
+                  className="btn-primary w-full py-3.5"
                 >
-                  📊 產生出席報表
+                  產生出席報表
                 </Link>
                 <button
                   onClick={handleReopen}
-                  className="w-full py-3.5 rounded-2xl border-2 border-amber-400 text-amber-700 font-semibold text-sm hover:bg-amber-50 active:scale-[0.98] transition-all"
+                  className="btn-ghost w-full py-3.5"
                 >
                   重新開啟補登
                 </button>
@@ -595,7 +594,7 @@ export default function Attendance() {
               <button
                 onClick={handleFinalize}
                 disabled={finalizing}
-                className="w-full py-3.5 rounded-2xl bg-amber-700 text-white font-semibold text-sm hover:bg-amber-800 active:scale-[0.98] transition-all shadow-md disabled:opacity-60"
+                className="btn-primary w-full py-3.5"
               >
                 {finalizing ? '儲存中...' : '完成點名'}
               </button>

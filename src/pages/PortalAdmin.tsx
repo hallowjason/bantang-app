@@ -36,15 +36,15 @@ const inputCls = 'border border-gray-200 rounded-xl px-3 py-2.5 text-sm w-full f
 type Tab = 'events' | 'venues' | 'users'
 
 const TYPE_OPTIONS: { value: EventType; label: string }[] = [
-  { value: 'lecture', label: '📖 講座' },
-  { value: 'trip',    label: '✈️ 出遊' },
-  { value: 'camp',    label: '⛺ 營隊' },
-  { value: 'class',   label: '🎓 課程' },
-  { value: 'other',   label: '📌 其他' },
+  { value: 'lecture', label: '講座' },
+  { value: 'trip',    label: '出遊' },
+  { value: 'camp',    label: '營隊' },
+  { value: 'class',   label: '課程' },
+  { value: 'other',   label: '其他' },
 ]
 
 const INTEREST_LABEL: Record<string, string> = {
-  yes: '✅ 參加', maybe: '🤔 考慮', no: '❌ 無法',
+  yes: '參加', maybe: '考慮', no: '無法',
 }
 
 const CITY_OPTIONS = ['台北', '新北', '桃園']
@@ -542,9 +542,9 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                           {/* 統計圖表 */}
                           <div className="bg-gray-50 rounded-xl px-3 py-2.5 flex flex-col gap-1.5">
                             {[
-                              { key: 'yes',   label: '✅ 參加', color: 'bg-green-400',  count: yesCnt },
-                              { key: 'maybe', label: '🤔 考慮', color: 'bg-amber-400',  count: maybeCnt },
-                              { key: 'no',    label: '❌ 無法', color: 'bg-red-300',    count: noCnt },
+                              { key: 'yes',   label: '參加', color: 'bg-green-400',  count: yesCnt },
+                              { key: 'maybe', label: '考慮', color: 'bg-amber-400',  count: maybeCnt },
+                              { key: 'no',    label: '無法', color: 'bg-red-300',    count: noCnt },
                             ].map(row => (
                               <div key={row.key} className="flex items-center gap-2">
                                 <span className="text-[11px] text-gray-500 w-14 shrink-0">{row.label}</span>
@@ -585,9 +585,9 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                                       <select value={editRespForm.interest}
                                         onChange={e => setEditRespForm(p => ({ ...p, interest: e.target.value as InterestLevel }))}
                                         className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-sky-400 flex-1">
-                                        <option value="yes">✅ 參加</option>
-                                        <option value="maybe">🤔 考慮中</option>
-                                        <option value="no">❌ 無法參加</option>
+                                        <option value="yes">參加</option>
+                                        <option value="maybe">考慮中</option>
+                                        <option value="no">無法參加</option>
                                       </select>
                                       <input value={editRespForm.note}
                                         onChange={e => setEditRespForm(p => ({ ...p, note: e.target.value }))}
@@ -622,7 +622,7 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                                     <div className="flex items-center gap-1 shrink-0">
                                       <span className="text-xs">{INTEREST_LABEL[r.interest] ?? r.interest}</span>
                                       <button onClick={() => handleEditResp(r)}
-                                        className="text-gray-300 hover:text-sky-500 text-xs px-1">✏️</button>
+                                        className="text-gray-300 hover:text-sky-500 text-xs px-1">編輯</button>
                                       <button onClick={() => handleDeleteResp(r.id)}
                                         className="text-gray-300 hover:text-red-500 text-xs px-1">✕</button>
                                     </div>
@@ -885,7 +885,7 @@ function UsersTab() {
   return (
     <div className="flex flex-col gap-3">
       <div className="bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3">
-        <p className="text-xs text-sky-700 font-medium">💡 小班長升級說明</p>
+        <p className="text-xs text-sky-700 font-medium">小班長升級說明</p>
         <p className="text-xs text-sky-600 mt-1">
           點擊「升為小班長」後，該班員即可登入班員後台管理活動與據點。<br />
           點擊「降為班員」可取消小班長權限。
@@ -956,9 +956,9 @@ export default function PortalAdmin() {
   }
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'events', label: '🎉 活動' },
-    { key: 'venues', label: '📍 據點' },
-    { key: 'users',  label: '👤 人員' },
+    { key: 'events', label: '活動' },
+    { key: 'venues', label: '據點' },
+    { key: 'users',  label: '人員' },
   ]
 
   return (

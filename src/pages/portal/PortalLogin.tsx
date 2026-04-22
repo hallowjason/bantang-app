@@ -43,7 +43,6 @@ export default function PortalLogin() {
 
       {/* Logo / 標題區 */}
       <div className="flex flex-col items-center gap-3 mb-8">
-        <div className="text-5xl">🏛</div>
         <h1 className="text-xl font-bold text-sky-700">班員入口</h1>
         <p className="text-sm text-gray-500 text-center max-w-xs">
           以 Google 帳號登入，可在據點頁加入聯絡人、填寫意願時自動帶入姓名。

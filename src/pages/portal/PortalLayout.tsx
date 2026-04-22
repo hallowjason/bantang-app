@@ -4,9 +4,9 @@ import { useAuth } from '../../context/AuthContext'
 // ─── Portal 底部導覽 ──────────────────────────────────────
 
 const PORTAL_TABS = [
-  { to: '/portal/schedule', icon: '📅', label: '課表' },
-  { to: '/portal/venues',   icon: '📍', label: '據點' },
-  { to: '/portal/events',   icon: '🎉', label: '活動' },
+  { to: '/portal/schedule', label: '課表' },
+  { to: '/portal/venues',   label: '據點' },
+  { to: '/portal/events',   label: '活動' },
 ]
 
 function PortalNav() {
@@ -16,20 +16,17 @@ function PortalNav() {
       className="fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-sky-100"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="max-w-screen-sm mx-auto flex h-16">
+      <div className="max-w-screen-sm mx-auto flex h-14">
         {PORTAL_TABS.map(tab => {
           const active = pathname === tab.to || pathname.startsWith(tab.to + '/')
           return (
             <Link
               key={tab.to}
               to={tab.to}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors select-none
-                ${active ? 'text-sky-600' : 'text-gray-400'}`}
+              className={`flex-1 flex items-center justify-center transition-colors select-none
+                ${active ? 'text-sky-600 font-semibold' : 'text-gray-400 font-normal'}`}
             >
-              <span className="text-xl leading-none">{tab.icon}</span>
-              <span className={`text-[11px] leading-none ${active ? 'font-semibold' : 'font-medium'}`}>
-                {tab.label}
-              </span>
+              <span className="text-sm">{tab.label}</span>
             </Link>
           )
         })}
@@ -51,7 +48,7 @@ function PortalHeader() {
   return (
     <header className="fixed top-0 left-0 right-0 z-10 bg-white border-b border-sky-100 shadow-sm">
       <div className="max-w-screen-sm mx-auto px-4 h-12 flex items-center justify-between">
-        <span className="text-sm font-bold text-sky-700">🏛 班員入口</span>
+        <span className="text-sm font-bold text-sky-700">班員入口</span>
         <div className="flex items-center gap-2">
           {isMemberSide ? (
             <>

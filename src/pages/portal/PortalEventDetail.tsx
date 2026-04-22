@@ -38,9 +38,9 @@ function removeMaybeReminder(eventId: string) {
 // ── 工具函式 ─────────────────────────────────────────────
 
 const INTEREST_OPTIONS: { value: InterestLevel; label: string; desc: string; color: string }[] = [
-  { value: 'yes',   label: '✅ 我要參加', desc: '確定參加',    color: 'border-green-400 bg-green-50 text-green-700' },
-  { value: 'maybe', label: '🤔 考慮中',   desc: '可能參加',    color: 'border-amber-400 bg-amber-50 text-amber-700' },
-  { value: 'no',    label: '❌ 這次無法', desc: '這次無法參加', color: 'border-gray-300 bg-gray-50 text-gray-500' },
+  { value: 'yes',   label: '我要參加', desc: '確定參加',    color: 'border-green-400 bg-green-50 text-green-700' },
+  { value: 'maybe', label: '考慮中',   desc: '可能參加',    color: 'border-amber-400 bg-amber-50 text-amber-700' },
+  { value: 'no',    label: '這次無法', desc: '這次無法參加', color: 'border-gray-300 bg-gray-50 text-gray-500' },
 ]
 
 function formatDateFull(dateStr: string): string {
@@ -235,7 +235,6 @@ export default function PortalEventDetail() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs bg-green-500 text-white px-2.5 py-1 rounded-xl hover:bg-green-600 transition-colors"
                     >
-                      <span>💬</span>
                       <span>LINE</span>
                     </a>
                   )}
@@ -263,8 +262,7 @@ export default function PortalEventDetail() {
         </div>
       ) : submitted ? (
         <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-6 text-center flex flex-col gap-2">
-          <p className="text-lg">✅</p>
-          <p className="text-sm font-medium text-green-700">意願已送出，感謝你的回覆！</p>
+          <p className="text-sm font-semibold text-green-700">意願已送出，感謝你的回覆！</p>
           {maybeConfirm && (
             <p className="text-xs text-amber-600">
               你選擇了「考慮中」，3 天後若未更新意願，下次打開活動頁時將再次提醒你。
@@ -279,7 +277,6 @@ export default function PortalEventDetail() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-xs bg-green-500 text-white px-3 py-1.5 rounded-xl self-center mt-1 hover:bg-green-600 transition-colors"
             >
-              <span>💬</span>
               <span>LINE 聯絡負責人</span>
             </a>
           )}
@@ -291,7 +288,6 @@ export default function PortalEventDetail() {
           {/* Google 登入提示（未登入時顯示） */}
           {!user && (
             <div className="bg-sky-50 border border-sky-100 rounded-xl px-4 py-3 flex items-center gap-3">
-              <span className="text-base shrink-0">💡</span>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-sky-700">
                   <Link to="/portal/login" className="font-medium underline">Google 登入</Link>後可自動帶入姓名等資料
@@ -364,7 +360,7 @@ export default function PortalEventDetail() {
                     style={{ color: fireColor, animation: fireAnim }}
                     className="text-xs font-semibold shrink-0"
                   >
-                    🔥 {yesCount} 人
+                    {yesCount} 人報名
                   </span>
                 )}
                 {interest === opt.value && <span className="text-sm shrink-0">●</span>}

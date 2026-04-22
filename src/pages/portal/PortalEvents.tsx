@@ -6,11 +6,11 @@ import type { PortalEvent, EventType } from '../../types'
 // ─── 活動意願調查列表 ─────────────────────────────────────
 
 const TYPE_LABEL: Record<EventType, string> = {
-  lecture: '📖 講座',
-  trip:    '✈️ 出遊',
-  camp:    '⛺ 營隊',
-  class:   '🎓 課程',
-  other:   '📌 其他',
+  lecture: '講座',
+  trip:    '出遊',
+  camp:    '營隊',
+  class:   '課程',
+  other:   '其他',
 }
 
 const TYPE_COLOR: Record<EventType, string> = {
@@ -103,7 +103,7 @@ export default function PortalEvents() {
           {reminders.map(r => (
             <div key={r.eventId}
               className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-3">
-              <span className="text-base shrink-0">🔔</span>
+              <span className="text-sm shrink-0 font-semibold text-amber-700">通知</span>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-amber-700">
                   你還沒確定《{r.eventTitle}》的參加意願
@@ -192,7 +192,7 @@ function EventCard({ event, past = false }: { event: PortalEvent; past?: boolean
 
         {/* 活動日期 */}
         {event.eventDates?.length > 0 && (
-          <p className="text-xs text-gray-500">📅 {formatDates(event.eventDates)}</p>
+          <p className="text-xs text-gray-500">{formatDates(event.eventDates)}</p>
         )}
 
         {/* 說明預覽 */}

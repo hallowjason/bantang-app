@@ -48,7 +48,6 @@ function MembersModal({ venue, onClose }: MembersModalProps) {
           <ul className="flex flex-col gap-2">
             {venue.members.map((name, idx) => (
               <li key={idx} className="flex items-center gap-2">
-                <span className="text-base">👤</span>
                 <span className="text-sm text-gray-700">{name}</span>
               </li>
             ))}
@@ -122,8 +121,7 @@ export default function PortalVenues() {
 
                     {/* 地址 */}
                     <div className="flex items-start gap-2">
-                      <span className="text-xs text-gray-400 shrink-0 pt-0.5">📍</span>
-                      <span className="text-xs text-gray-700 flex-1">{venue.address}</span>
+                      <span className="text-xs text-gray-700">{venue.address}</span>
                     </div>
 
                     {/* 按鈕列 */}
@@ -158,7 +156,6 @@ export default function PortalVenues() {
                           rel="noopener noreferrer"
                           className="text-xs bg-green-500 text-white px-3 py-1.5 rounded-xl hover:bg-green-600 transition-colors flex items-center gap-1"
                         >
-                          <span>💬</span>
                           <span>加入 LINE 群</span>
                         </a>
                       )}

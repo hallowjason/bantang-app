@@ -6,9 +6,9 @@ const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID as string | undefin
 const PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY  as string | undefined
 
 const INTEREST_LABEL: Record<string, string> = {
-  yes:   '✅ 我要參加',
-  maybe: '🤔 考慮中',
-  no:    '❌ 這次無法',
+  yes:   '我要參加',
+  maybe: '考慮中',
+  no:    '這次無法',
 }
 
 /**
