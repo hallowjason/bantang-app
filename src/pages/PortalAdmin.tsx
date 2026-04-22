@@ -23,13 +23,13 @@ const isPortalAdminRole = (role: string) =>
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs text-gray-500">{label}</label>
+      <label className="text-xs text-muted">{label}</label>
       {children}
     </div>
   )
 }
 
-const inputCls = 'border border-gray-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:border-sky-400'
+const inputCls = 'input-lovable'
 
 // ─── 型別 ─────────────────────────────────────────────────
 
@@ -309,14 +309,14 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
   return (
     <div className="flex flex-col gap-4">
       <button onClick={openNew}
-        className="w-full py-2.5 rounded-xl bg-sky-600 text-white text-sm font-medium hover:bg-sky-700">
+        className="btn-primary w-full py-2.5">
         ＋ 新增活動
       </button>
 
       {/* 表單 */}
       {editId && (
-        <div className="bg-white rounded-2xl border border-sky-200 px-5 py-4 flex flex-col gap-3">
-          <p className="text-xs font-semibold text-sky-700">{editId === 'new' ? '新增活動' : '編輯活動'}</p>
+        <div className="card-lovable flex flex-col gap-3">
+          <p className="text-xs font-semibold text-ink">{editId === 'new' ? '新增活動' : '編輯活動'}</p>
 
           <Field label="活動名稱 *">
             <input value={form.title}
@@ -337,34 +337,34 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
             <textarea value={form.description}
               onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
               rows={3} placeholder="活動詳情說明..."
-              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:border-sky-400 resize-none" />
+              className="input-lovable resize-none" />
           </Field>
 
           {/* 封面圖片 */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500">封面圖片（選填）</label>
+            <label className="text-xs text-muted">封面圖片（選填）</label>
             {displayImageUrl && (
               <img src={displayImageUrl} alt="封面預覽"
                 className="w-full rounded-xl object-cover aspect-video" />
             )}
             <input type="file" accept="image/*" onChange={handleImageSelect}
-              className="text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100" />
+              className="text-xs text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-hairline file:text-xs file:bg-cream-surface file:text-ink hover:file:bg-[var(--color-tint-hover)]" />
           </div>
 
           {/* 活動日期 */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-gray-500">活動日期</label>
+            <label className="text-xs text-muted">活動日期</label>
             <div className="flex gap-2">
               <input type="date" value={dateInput} onChange={e => setDateInput(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-sky-400" />
+                className="input-lovable flex-1" />
               <button onClick={addDate}
-                className="px-3 py-1.5 rounded-lg bg-sky-100 text-sky-700 text-xs hover:bg-sky-200">
+                className="btn-cream text-xs px-3 py-1.5">
                 加入
               </button>
             </div>
             {form.eventDates.map(d => (
               <div key={d} className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 flex-1">{d}</span>
+                <span className="text-xs text-muted flex-1">{d}</span>
                 <button onClick={() => removeDate(d)} className="text-xs text-red-400 hover:text-red-600">✕</button>
               </div>
             ))}
@@ -377,31 +377,31 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
           </Field>
 
           {/* 負責人（最多 3 位） */}
-          <div className="bg-sky-50 border border-sky-100 rounded-xl px-4 py-3 flex flex-col gap-2.5">
+          <div className="bg-cream-surface border border-hairline rounded-xl px-4 py-3 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-sky-700">活動負責人</p>
+              <p className="text-xs font-medium text-ink">活動負責人</p>
               {form.responsible.length < 3 && (
                 <button onClick={addResponsible}
-                  className="text-xs text-sky-600 hover:text-sky-800 font-medium">
+                  className="text-xs text-ink hover:opacity-80 font-medium underline">
                   ＋ 新增
                 </button>
               )}
             </div>
             {form.responsible.length === 0 && (
-              <p className="text-xs text-gray-400">尚未新增負責人</p>
+              <p className="text-xs text-muted">尚未新增負責人</p>
             )}
             {form.responsible.map((r, idx) => (
               <div key={idx} className="flex gap-2 items-center">
                 <input value={r.name}
                   onChange={e => updateResponsible(idx, 'name', e.target.value)}
                   placeholder="姓名"
-                  className="flex-1 border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-sky-400" />
+                  className="input-lovable flex-1 rounded-lg px-2.5 py-2" />
                 <input value={r.lineId}
                   onChange={e => updateResponsible(idx, 'lineId', e.target.value)}
                   placeholder="LINE ID"
-                  className="flex-1 border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-sky-400" />
+                  className="input-lovable flex-1 rounded-lg px-2.5 py-2" />
                 <button onClick={() => removeResponsible(idx)}
-                  className="text-gray-400 hover:text-red-500 shrink-0 text-lg leading-none">✕</button>
+                  className="text-muted hover:text-red-500 shrink-0 text-lg leading-none">✕</button>
               </div>
             ))}
           </div>
@@ -410,7 +410,7 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
             <input type="checkbox" id="isPublished" checked={form.isPublished}
               onChange={e => setForm(prev => ({ ...prev, isPublished: e.target.checked }))}
               className="w-4 h-4 rounded" />
-            <label htmlFor="isPublished" className="text-xs text-gray-600">立即上架</label>
+            <label htmlFor="isPublished" className="text-xs text-muted">立即上架</label>
           </div>
 
           {saveError && (
@@ -419,11 +419,11 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
 
           <div className="flex gap-2">
             <button onClick={handleSave} disabled={saving}
-              className="flex-1 py-2 rounded-xl bg-sky-600 text-white text-sm font-medium hover:bg-sky-700 disabled:opacity-60">
+              className="btn-primary flex-1 py-2">
               {saving ? '儲存中...' : '儲存'}
             </button>
             <button onClick={() => { setEditId(null); setSaveError('') }}
-              className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50">
+              className="px-4 py-2 rounded-xl border border-hairline text-sm text-muted hover:bg-cream-surface">
               取消
             </button>
           </div>
@@ -432,13 +432,13 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
 
       {/* 活動列表 */}
       {loading ? (
-        <p className="text-center text-sm text-gray-400 py-6">讀取中...</p>
+        <p className="text-center text-sm text-muted py-6">讀取中...</p>
       ) : events.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-6">尚無活動，請新增</p>
+        <p className="text-center text-sm text-muted py-6">尚無活動，請新增</p>
       ) : (
         <div className="flex flex-col gap-3">
           {events.map(ev => (
-            <div key={ev.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div key={ev.id} className="bg-cream border border-hairline rounded-xl overflow-hidden">
               {ev.imageUrl && (
                 <img src={ev.imageUrl} alt={ev.title}
                   className="w-full object-cover aspect-video" />
@@ -446,14 +446,14 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
               <div className="px-5 py-4 flex flex-col gap-2">
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800">{ev.title}</p>
-                    <p className="text-xs text-gray-400">截止：{ev.deadline} · {ev.eventDates.length} 個日期</p>
+                    <p className="text-sm font-semibold text-ink">{ev.title}</p>
+                    <p className="text-xs text-muted">截止：{ev.deadline} · {ev.eventDates.length} 個日期</p>
                     {ev.responsible?.length > 0 && (
-                      <p className="text-xs text-gray-400">負責人：{ev.responsible.map(r => r.name).join('、')}</p>
+                      <p className="text-xs text-muted">負責人：{ev.responsible.map(r => r.name).join('、')}</p>
                     )}
                   </div>
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
-                    ev.isPublished ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                    ev.isPublished ? 'bg-green-100 text-green-600' : 'bg-[var(--color-hairline)] text-muted'}`}>
                     {ev.isPublished ? '已上架' : '未上架'}
                   </span>
                 </div>
@@ -469,7 +469,7 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                   </button>
                   {/* 查看回覆（認領後顯示新回覆 badge） */}
                   <button onClick={() => loadResponses(ev)}
-                    className="relative text-xs px-2.5 py-1 rounded-lg border border-sky-200 text-sky-600 hover:bg-sky-50">
+                    className="relative text-xs px-2.5 py-1 rounded-lg border border-hairline text-ink hover:bg-[var(--color-tint-hover)]">
                     查看回覆
                     {(() => {
                       const badge = (liveCounts[ev.id] ?? 0) - (seenCounts[ev.id] ?? 0)
@@ -488,7 +488,7 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                       ev.claimedBy?.uid === currentUid
                         ? 'border-violet-200 text-violet-600 hover:bg-violet-50'
                         : ev.claimedBy
-                        ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                        ? 'border-hairline text-muted cursor-not-allowed'
                         : 'border-indigo-200 text-indigo-600 hover:bg-indigo-50'
                     }`}
                   >
@@ -513,11 +513,11 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                   const noCnt    = responses.filter(r => r.interest === 'no').length
                   const total    = responses.length
                   return (
-                    <div className="mt-1 border-t border-gray-100 pt-3 flex flex-col gap-3">
+                    <div className="mt-1 border-t border-hairline pt-3 flex flex-col gap-3">
                       {/* 標題列 */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-semibold text-gray-600">意願回覆</p>
+                          <p className="text-xs font-semibold text-muted">意願回覆</p>
                           {isLiveView && (
                             <span className="flex items-center gap-1 text-[10px] text-green-600 bg-green-50 border border-green-200 rounded-full px-1.5 py-0.5">
                               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
@@ -527,43 +527,43 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                         </div>
                         {total > 0 && (
                           <button onClick={() => exportCSV(ev.title)}
-                            className="text-[11px] text-sky-600 border border-sky-200 rounded-lg px-2 py-0.5 hover:bg-sky-50">
+                            className="text-[11px] text-ink border border-hairline rounded-lg px-2 py-0.5 hover:bg-[var(--color-tint-hover)]">
                             ↓ 匯出 CSV
                           </button>
                         )}
                       </div>
 
                       {loadingRes ? (
-                        <p className="text-xs text-gray-400">讀取中...</p>
+                        <p className="text-xs text-muted">讀取中...</p>
                       ) : total === 0 ? (
-                        <p className="text-xs text-gray-400">尚無回覆</p>
+                        <p className="text-xs text-muted">尚無回覆</p>
                       ) : (
                         <>
                           {/* 統計圖表 */}
-                          <div className="bg-gray-50 rounded-xl px-3 py-2.5 flex flex-col gap-1.5">
+                          <div className="bg-cream-surface rounded-xl px-3 py-2.5 flex flex-col gap-1.5">
                             {[
                               { key: 'yes',   label: '參加', color: 'bg-green-400',  count: yesCnt },
                               { key: 'maybe', label: '考慮', color: 'bg-amber-400',  count: maybeCnt },
                               { key: 'no',    label: '無法', color: 'bg-red-300',    count: noCnt },
                             ].map(row => (
                               <div key={row.key} className="flex items-center gap-2">
-                                <span className="text-[11px] text-gray-500 w-14 shrink-0">{row.label}</span>
-                                <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                                <span className="text-[11px] text-muted w-14 shrink-0">{row.label}</span>
+                                <div className="flex-1 h-3 bg-[var(--color-hairline)] rounded-full overflow-hidden">
                                   <div
                                     className={`h-full ${row.color} rounded-full transition-all duration-500`}
                                     style={{ width: total > 0 ? `${(row.count / total) * 100}%` : '0%' }}
                                   />
                                 </div>
-                                <span className="text-[11px] text-gray-600 w-6 text-right shrink-0 font-medium">{row.count}</span>
+                                <span className="text-[11px] text-muted w-6 text-right shrink-0 font-medium">{row.count}</span>
                               </div>
                             ))}
-                            <p className="text-[11px] text-gray-400 mt-0.5">共 {total} 筆</p>
+                            <p className="text-[11px] text-muted mt-0.5">共 {total} 筆</p>
                           </div>
 
                           {/* 回覆列表 */}
                           <div className="flex flex-col gap-2">
                             {responses.map(r => (
-                              <div key={r.id} className="bg-gray-50 rounded-xl overflow-hidden">
+                              <div key={r.id} className="bg-cream-surface rounded-xl overflow-hidden">
                                 {editRespId === r.id ? (
                                   /* 編輯模式 */
                                   <div className="px-3 py-2.5 flex flex-col gap-2">
@@ -571,20 +571,20 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                                       <input value={editRespForm.name}
                                         onChange={e => setEditRespForm(p => ({ ...p, name: e.target.value }))}
                                         placeholder="姓名"
-                                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-sky-400" />
+                                        className="input-lovable rounded-lg px-2 py-1.5 text-xs" />
                                       <input value={editRespForm.phone}
                                         onChange={e => setEditRespForm(p => ({ ...p, phone: e.target.value }))}
                                         placeholder="電話"
-                                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-sky-400" />
+                                        className="input-lovable rounded-lg px-2 py-1.5 text-xs" />
                                     </div>
                                     <input value={editRespForm.email}
                                       onChange={e => setEditRespForm(p => ({ ...p, email: e.target.value }))}
                                       placeholder="Email"
-                                      className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-sky-400 w-full" />
+                                      className="input-lovable rounded-lg px-2 py-1.5 text-xs" />
                                     <div className="flex gap-2 items-center">
                                       <select value={editRespForm.interest}
                                         onChange={e => setEditRespForm(p => ({ ...p, interest: e.target.value as InterestLevel }))}
-                                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-sky-400 flex-1">
+                                        className="input-lovable flex-1 rounded-lg px-2 py-1.5 text-xs">
                                         <option value="yes">參加</option>
                                         <option value="maybe">考慮中</option>
                                         <option value="no">無法參加</option>
@@ -592,15 +592,15 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                                       <input value={editRespForm.note}
                                         onChange={e => setEditRespForm(p => ({ ...p, note: e.target.value }))}
                                         placeholder="備註"
-                                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-sky-400 flex-1" />
+                                        className="input-lovable flex-1 rounded-lg px-2 py-1.5 text-xs" />
                                     </div>
                                     <div className="flex gap-2">
                                       <button onClick={handleSaveResp} disabled={savingResp}
-                                        className="flex-1 py-1 rounded-lg bg-sky-600 text-white text-xs font-medium hover:bg-sky-700 disabled:opacity-60">
+                                        className="btn-primary flex-1 py-1 text-xs">
                                         {savingResp ? '儲存中...' : '儲存'}
                                       </button>
                                       <button onClick={() => setEditRespId(null)}
-                                        className="px-3 py-1 rounded-lg border border-gray-200 text-xs text-gray-500 hover:bg-white">
+                                        className="px-3 py-1 rounded-lg border border-hairline text-xs text-muted hover:bg-cream-surface">
                                         取消
                                       </button>
                                     </div>
@@ -609,22 +609,22 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                                   /* 顯示模式 */
                                   <div className="px-3 py-2 flex items-start gap-2">
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-medium text-gray-700">
+                                      <p className="text-xs font-medium text-ink">
                                         {r.name}
-                                        <span className="text-gray-400 font-normal ml-1">{r.phone}</span>
+                                        <span className="text-muted font-normal ml-1">{r.phone}</span>
                                       </p>
-                                      {r.email && <p className="text-[11px] text-gray-400">{r.email}</p>}
-                                      {r.note  && <p className="text-[11px] text-gray-400 mt-0.5">{r.note}</p>}
-                                      <p className="text-[10px] text-gray-300 mt-0.5">
+                                      {r.email && <p className="text-[11px] text-muted">{r.email}</p>}
+                                      {r.note  && <p className="text-[11px] text-muted mt-0.5">{r.note}</p>}
+                                      <p className="text-[10px] text-muted opacity-70 mt-0.5">
                                         {new Date(r.submittedAt).toLocaleString('zh-TW', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' })}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
                                       <span className="text-xs">{INTEREST_LABEL[r.interest] ?? r.interest}</span>
                                       <button onClick={() => handleEditResp(r)}
-                                        className="text-gray-300 hover:text-sky-500 text-xs px-1">編輯</button>
+                                        className="text-muted opacity-70 hover:text-ink text-xs px-1">編輯</button>
                                       <button onClick={() => handleDeleteResp(r.id)}
-                                        className="text-gray-300 hover:text-red-500 text-xs px-1">✕</button>
+                                        className="text-muted opacity-70 hover:text-red-500 text-xs px-1">✕</button>
                                     </div>
                                   </div>
                                 )}
@@ -729,13 +729,13 @@ function VenuesTab() {
   return (
     <div className="flex flex-col gap-4">
       <button onClick={openNew}
-        className="w-full py-2.5 rounded-xl bg-sky-600 text-white text-sm font-medium hover:bg-sky-700">
+        className="btn-primary w-full py-2.5">
         ＋ 新增據點
       </button>
 
       {editId && (
-        <div className="bg-white rounded-2xl border border-sky-200 px-5 py-4 flex flex-col gap-3">
-          <p className="text-xs font-semibold text-sky-700">{editId === 'new' ? '新增據點' : '編輯據點'}</p>
+        <div className="card-lovable flex flex-col gap-3">
+          <p className="text-xs font-semibold text-ink">{editId === 'new' ? '新增據點' : '編輯據點'}</p>
 
           <Field label="佛堂名稱 *">
             <input value={form.name} onChange={f('name')} placeholder="三重佛堂" className={inputCls} />
@@ -757,36 +757,36 @@ function VenuesTab() {
           <Field label="說明（可空）">
             <textarea value={form.description} onChange={f('description')} rows={2}
               placeholder="簡短說明此據點..."
-              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:border-sky-400 resize-none" />
+              className="input-lovable resize-none" />
           </Field>
           <Field label="顯示順序">
             <input type="number" value={form.order}
               onChange={e => setForm(prev => ({ ...prev, order: Number(e.target.value) }))}
-              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm w-24 focus:outline-none focus:border-sky-400" />
+              className="input-lovable w-24" />
           </Field>
 
           {/* 成員名單管理 */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500">成員名單</label>
+            <label className="text-xs text-muted">成員名單</label>
             <div className="flex gap-2">
               <input value={memberInput} onChange={e => setMemberInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addMember()}
                 placeholder="輸入姓名"
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-sky-400" />
+                className="input-lovable flex-1 py-2" />
               <button onClick={addMember}
-                className="px-3 py-1.5 rounded-lg bg-sky-100 text-sky-700 text-xs hover:bg-sky-200">
+                className="btn-cream text-xs px-3 py-1.5">
                 加入
               </button>
             </div>
             {(form.members ?? []).length === 0 ? (
-              <p className="text-xs text-gray-400">尚無成員</p>
+              <p className="text-xs text-muted">尚無成員</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {(form.members ?? []).map(name => (
                   <span key={name}
-                    className="flex items-center gap-1 text-xs bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full">
+                    className="flex items-center gap-1 text-xs bg-[var(--color-hairline)] text-ink px-2 py-0.5 rounded-full">
                     {name}
-                    <button onClick={() => removeMember(name)} className="text-sky-400 hover:text-red-500">✕</button>
+                    <button onClick={() => removeMember(name)} className="text-muted hover:text-red-500">✕</button>
                   </span>
                 ))}
               </div>
@@ -799,11 +799,11 @@ function VenuesTab() {
 
           <div className="flex gap-2">
             <button onClick={handleSave} disabled={saving}
-              className="flex-1 py-2 rounded-xl bg-sky-600 text-white text-sm font-medium hover:bg-sky-700 disabled:opacity-60">
+              className="btn-primary flex-1 py-2">
               {saving ? '儲存中...' : '儲存'}
             </button>
             <button onClick={() => { setEditId(null); setSaveError('') }}
-              className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50">
+              className="px-4 py-2 rounded-xl border border-hairline text-sm text-muted hover:bg-cream-surface">
               取消
             </button>
           </div>
@@ -811,18 +811,18 @@ function VenuesTab() {
       )}
 
       {loading ? (
-        <p className="text-center text-sm text-gray-400 py-6">讀取中...</p>
+        <p className="text-center text-sm text-muted py-6">讀取中...</p>
       ) : venues.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-6">尚無據點，請新增</p>
+        <p className="text-center text-sm text-muted py-6">尚無據點，請新增</p>
       ) : (
         <div className="flex flex-col gap-2">
           {venues.map(v => (
-            <div key={v.id} className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-start gap-3">
+            <div key={v.id} className="card-lovable flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800">{v.name}</p>
-                <p className="text-xs text-gray-400">{v.city} · {v.address}</p>
+                <p className="text-sm font-semibold text-ink">{v.name}</p>
+                <p className="text-xs text-muted">{v.city} · {v.address}</p>
                 {v.members && v.members.length > 0 && (
-                  <p className="text-xs text-gray-400">成員：{v.members.join('、')}</p>
+                  <p className="text-xs text-muted">成員：{v.members.join('、')}</p>
                 )}
                 {v.lineGroupUrl && (
                   <p className="text-xs text-green-600">LINE 群組已設定</p>
@@ -830,7 +830,7 @@ function VenuesTab() {
               </div>
               <div className="flex gap-1.5 shrink-0">
                 <button onClick={() => openEdit(v)}
-                  className="text-xs text-sky-600 border border-sky-200 px-2.5 py-1 rounded-lg hover:bg-sky-50">
+                  className="text-xs text-ink border border-hairline px-2.5 py-1 rounded-lg hover:bg-[var(--color-tint-hover)]">
                   編輯
                 </button>
                 <button onClick={() => handleDelete(v.id)} disabled={deleting === v.id}
@@ -884,31 +884,31 @@ function UsersTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3">
-        <p className="text-xs text-sky-700 font-medium">小班長升級說明</p>
-        <p className="text-xs text-sky-600 mt-1">
+      <div className="bg-cream-surface border border-hairline rounded-2xl px-4 py-3">
+        <p className="text-xs text-ink font-medium">小班長升級說明</p>
+        <p className="text-xs text-muted mt-1">
           點擊「升為小班長」後，該班員即可登入班員後台管理活動與據點。<br />
           點擊「降為班員」可取消小班長權限。
         </p>
       </div>
 
       {loading ? (
-        <p className="text-center text-sm text-gray-400 py-6">讀取中...</p>
+        <p className="text-center text-sm text-muted py-6">讀取中...</p>
       ) : users.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-6">目前沒有班員或小班長帳號</p>
+        <p className="text-center text-sm text-muted py-6">目前沒有班員或小班長帳號</p>
       ) : (
         users.map(u => (
           <div key={u.uid}
-            className={`bg-white rounded-2xl border px-4 py-3 flex items-center gap-3 transition-colors
-              ${saved === u.uid ? 'border-green-300' : 'border-gray-100'}`}>
+            className={`bg-cream rounded-2xl border px-4 py-3 flex items-center gap-3 transition-colors
+              ${saved === u.uid ? 'border-green-300' : 'border-hairline'}`}>
             {u.photoURL && <img src={u.photoURL} alt={u.name} className="w-8 h-8 rounded-full shrink-0" />}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800 truncate">{u.name || '（無姓名）'}</p>
-              <p className="text-xs text-gray-400 truncate">{u.email ?? '—'}</p>
+              <p className="text-sm font-semibold text-ink truncate">{u.name || '（無姓名）'}</p>
+              <p className="text-xs text-muted truncate">{u.email ?? '—'}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                u.role === 'junior_leader' ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-500'
+                u.role === 'junior_leader' ? 'bg-ink text-cream-surface' : 'bg-[var(--color-hairline)] text-muted'
               }`}>
                 {u.role === 'junior_leader' ? '小班長' : '班員'}
               </span>
@@ -921,7 +921,7 @@ function UsersTab() {
                   className={`text-xs px-3 py-1.5 rounded-xl border transition-colors disabled:opacity-50 ${
                     u.role === 'junior_leader'
                       ? 'border-orange-200 text-orange-600 hover:bg-orange-50'
-                      : 'border-sky-200 text-sky-600 hover:bg-sky-50'
+                      : 'border-hairline text-ink hover:bg-[var(--color-tint-hover)]'
                   }`}
                 >
                   {savingId === u.uid ? '...' : u.role === 'junior_leader' ? '降為班員' : '升為小班長'}
@@ -944,8 +944,8 @@ export default function PortalAdmin() {
   // 載入中
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sky-50">
-        <p className="text-gray-400 text-sm">載入中...</p>
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <p className="text-muted text-sm">載入中...</p>
       </div>
     )
   }
@@ -962,26 +962,26 @@ export default function PortalAdmin() {
   ]
 
   return (
-    <div className="min-h-screen bg-sky-50">
-      <header className="bg-white border-b border-sky-100 sticky top-0 z-10">
+    <div className="min-h-screen bg-cream">
+      <header className="bg-cream-surface border-b border-hairline sticky top-0 z-10">
         <div className="max-w-screen-sm mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-base font-bold text-sky-800">班員後台</h1>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <h1 className="text-base font-bold text-ink">班員後台</h1>
+            <p className="text-xs text-muted mt-0.5">
               {user.role === 'junior_leader' ? '小班長' : user.role === 'class_master' ? '主班' : '大領班'} · {user.name}
             </p>
           </div>
-          <Link to="/portal/schedule" className="text-xs text-sky-600 border border-sky-200 rounded-lg px-2.5 py-1 hover:bg-sky-50">
+          <Link to="/portal/schedule" className="text-xs text-ink border border-hairline rounded-lg px-2.5 py-1 hover:bg-[var(--color-tint-hover)]">
             ← 班員入口
           </Link>
         </div>
-        <div className="max-w-screen-sm mx-auto px-4 pb-0 flex border-b border-sky-100">
+        <div className="max-w-screen-sm mx-auto px-4 pb-0 flex border-b border-hairline">
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex-1 py-2.5 text-xs font-medium border-b-2 transition-colors
                 ${tab === t.key
-                  ? 'border-sky-600 text-sky-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                  ? 'border-ink text-ink'
+                  : 'border-transparent text-muted hover:text-ink'}`}>
               {t.label}
             </button>
           ))}
