@@ -143,13 +143,13 @@ export default function PortalEventDetail() {
   }
 
   if (loading) {
-    return <div className="text-center text-sm text-gray-400 py-16">讀取中...</div>
+    return <div className="text-center text-sm text-muted py-16">讀取中...</div>
   }
   if (notFound) {
     return (
       <div className="max-w-lg mx-auto px-4 pt-8 text-center">
-        <p className="text-sm text-gray-400">找不到此活動，或活動尚未開放。</p>
-        <button onClick={() => navigate('/portal/events')} className="mt-4 text-xs text-sky-600 underline">
+        <p className="text-sm text-muted">找不到此活動，或活動尚未開放。</p>
+        <button onClick={() => navigate('/portal/events')} className="mt-4 text-xs text-muted underline hover:text-ink">
           ← 返回活動列表
         </button>
       </div>
@@ -175,7 +175,7 @@ export default function PortalEventDetail() {
       {/* 返回 */}
       <button
         onClick={() => navigate('/portal/events')}
-        className="text-xs text-sky-600 self-start hover:underline"
+        className="text-xs text-muted self-start hover:text-ink hover:underline transition-colors"
       >
         ← 返回活動列表
       </button>
@@ -185,28 +185,28 @@ export default function PortalEventDetail() {
         <img
           src={event.imageUrl}
           alt={event.title}
-          className="w-full rounded-2xl object-cover aspect-video shadow-sm"
+          className="w-full rounded-xl object-cover aspect-video"
         />
       )}
 
       {/* 活動資訊卡 */}
-      <div className="bg-white rounded-2xl shadow-sm px-5 py-5 flex flex-col gap-3">
-        <h1 className="text-base font-bold text-gray-800">{event.title}</h1>
+      <div className="card-lovable flex flex-col gap-3">
+        <h1 className="text-base font-semibold text-ink">{event.title}</h1>
 
         {/* 活動日期 */}
         {event.eventDates?.length > 0 && (
           <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-400 font-medium">活動日期</span>
+            <span className="text-xs text-muted font-medium">活動日期</span>
             {event.eventDates.map(d => (
-              <span key={d} className="text-sm text-gray-700">{formatDateFull(d)}</span>
+              <span key={d} className="text-sm text-ink">{formatDateFull(d)}</span>
             ))}
           </div>
         )}
 
         {/* 截止日 */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 font-medium">填寫截止</span>
-          <span className={`text-sm ${isPast ? 'text-gray-400' : 'text-red-500 font-medium'}`}>
+          <span className="text-xs text-muted font-medium">填寫截止</span>
+          <span className={`text-sm ${isPast ? 'text-muted' : 'text-red-500 font-medium'}`}>
             {formatDateFull(event.deadline)}
             {isPast && '（已截止）'}
           </span>
@@ -215,25 +215,25 @@ export default function PortalEventDetail() {
         {/* 說明 */}
         {event.description && (
           <div>
-            <span className="text-xs text-gray-400 font-medium">活動說明</span>
-            <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{event.description}</p>
+            <span className="text-xs text-muted font-medium">活動說明</span>
+            <p className="text-sm text-ink mt-1 whitespace-pre-wrap">{event.description}</p>
           </div>
         )}
 
         {/* 負責人（最多 3 位） */}
         {event.responsible && event.responsible.length > 0 && (
-          <div className="border-t border-gray-100 pt-3 flex flex-col gap-2">
-            <span className="text-xs text-gray-400 font-medium">活動負責人</span>
+          <div className="border-t border-hairline pt-3 flex flex-col gap-2">
+            <span className="text-xs text-muted font-medium">活動負責人</span>
             <div className="flex flex-wrap gap-2">
               {event.responsible.map((r, idx) => (
                 <div key={idx} className="flex items-center gap-2">
-                  <span className="text-sm text-gray-700">{r.name}</span>
+                  <span className="text-sm text-ink">{r.name}</span>
                   {r.lineId && (
                     <a
                       href={`https://line.me/R/ti/p/~${r.lineId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs bg-green-500 text-white px-2.5 py-1 rounded-xl hover:bg-green-600 transition-colors"
+                      className="inline-flex items-center gap-1 text-xs bg-green-500 text-white px-2.5 py-1 rounded-lg hover:bg-green-600 transition-colors"
                     >
                       <span>LINE</span>
                     </a>
@@ -247,8 +247,8 @@ export default function PortalEventDetail() {
 
       {/* ── 意願填表 ── */}
       {isPast ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl px-5 py-5 text-center">
-          <p className="text-sm text-gray-500">此活動意願調查已截止</p>
+        <div className="card-lovable text-center">
+          <p className="text-sm text-muted">此活動意願調查已截止</p>
           {event.responsible && event.responsible.length > 0 && event.responsible[0].lineId && (
             <a
               href={`https://line.me/R/ti/p/~${event.responsible[0].lineId}`}
@@ -261,35 +261,35 @@ export default function PortalEventDetail() {
           )}
         </div>
       ) : submitted ? (
-        <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-6 text-center flex flex-col gap-2">
+        <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-6 text-center flex flex-col gap-2">
           <p className="text-sm font-semibold text-green-700">意願已送出，感謝你的回覆！</p>
           {maybeConfirm && (
             <p className="text-xs text-amber-600">
               你選擇了「考慮中」，3 天後若未更新意願，下次打開活動頁時將再次提醒你。
             </p>
           )}
-          <p className="text-xs text-gray-500">管理人員將於近日整理名單後與你聯繫。</p>
+          <p className="text-xs text-muted">管理人員將於近日整理名單後與你聯繫。</p>
           {/* 負責人 LINE */}
           {event.responsible && event.responsible.length > 0 && event.responsible[0].lineId && (
             <a
               href={`https://line.me/R/ti/p/~${event.responsible[0].lineId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs bg-green-500 text-white px-3 py-1.5 rounded-xl self-center mt-1 hover:bg-green-600 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs bg-green-500 text-white px-3 py-1.5 rounded-lg self-center mt-1 hover:bg-green-600 transition-colors"
             >
               <span>LINE 聯絡負責人</span>
             </a>
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm px-5 py-5 flex flex-col gap-4">
-          <h2 className="text-sm font-semibold text-gray-700">填寫意願</h2>
+        <div className="card-lovable flex flex-col gap-4">
+          <h2 className="text-sm font-semibold text-muted">填寫意願</h2>
 
           {/* Google 登入提示（未登入時顯示） */}
           {!user && (
-            <div className="bg-sky-50 border border-sky-100 rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="card-lovable-compact flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-sky-700">
+                <p className="text-xs text-ink">
                   <Link to="/portal/login" className="font-medium underline">Google 登入</Link>後可自動帶入姓名等資料
                 </p>
               </div>
@@ -298,48 +298,48 @@ export default function PortalEventDetail() {
 
           {/* 姓名 */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">姓名 <span className="text-red-400">*</span></label>
+            <label className="text-xs text-muted">姓名 <span className="text-red-400">*</span></label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="輸入你的姓名"
-              className="text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-sky-400"
+              className="input-lovable"
             />
           </div>
 
           {/* 電話 */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">電話 <span className="text-red-400">*</span></label>
+            <label className="text-xs text-muted">電話 <span className="text-red-400">*</span></label>
             <input
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
               placeholder="輸入聯絡電話"
-              className="text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-sky-400"
+              className="input-lovable"
             />
           </div>
 
           {/* Email */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Email <span className="text-red-400">*</span></label>
+            <label className="text-xs text-muted">Email <span className="text-red-400">*</span></label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="輸入 Email（活動通知用）"
-              className="text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-sky-400"
+              className="input-lovable"
             />
           </div>
 
           {/* 意願選擇 */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500">參加意願 <span className="text-red-400">*</span></label>
+            <label className="text-xs text-muted">參加意願 <span className="text-red-400">*</span></label>
             {INTEREST_OPTIONS.map(opt => (
               <label
                 key={opt.value}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-colors ${
-                  interest === opt.value ? opt.color : 'border-gray-200 bg-white'
+                  interest === opt.value ? opt.color : 'border-hairline bg-cream'
                 }`}
               >
                 <input
@@ -352,7 +352,7 @@ export default function PortalEventDetail() {
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium">{opt.label}</p>
-                  <p className="text-xs text-gray-400">{opt.desc}</p>
+                  <p className="text-xs text-muted">{opt.desc}</p>
                 </div>
                 {/* 即時報名人數 badge（只顯示在「我要參加」選項） */}
                 {opt.value === 'yes' && yesCount > 0 && (
@@ -370,13 +370,13 @@ export default function PortalEventDetail() {
 
           {/* 備註 */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">備註（可選填）</label>
+            <label className="text-xs text-muted">備註（可選填）</label>
             <textarea
               value={note}
               onChange={e => setNote(e.target.value)}
               placeholder="有任何問題或補充說明可以在這裡填寫..."
               rows={3}
-              className="text-sm border border-gray-200 rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:border-sky-400"
+              className="input-lovable resize-none"
             />
           </div>
 
@@ -389,13 +389,11 @@ export default function PortalEventDetail() {
           <button
             onClick={handleSubmit}
             disabled={submitting || !name.trim() || !phone.trim() || !email.trim() || !interest}
-            className="w-full py-3 rounded-xl bg-sky-600 text-white text-sm font-medium
-              hover:bg-sky-700 active:bg-sky-800 transition-colors
-              disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary w-full py-3"
           >
             {submitting ? '送出中...' : '送出意願'}
           </button>
-          <p className="text-[10px] text-gray-400 text-center">
+          <p className="text-[10px] text-muted text-center">
             填寫後系統會自動通知活動負責人，不需要再另外聯絡。
           </p>
         </div>
