@@ -9,7 +9,7 @@ import type { UserRole } from '../../src/types'
  *
  * Phase 5 covered role-gating (head_leader/class_master vs leader). Phase 6
  * exercises the actual admin UI as head_leader:
- *   1. Tab 切換 — 🏫 班級 / 👤 人員 / 🔗 iccf
+ *   1. Tab 切換 — 班級 / 人員 / iccf
  *   2. 建立班級 — 空白驗證 + 成功建立
  *   3. 編輯班級 — 改名 + 課表分頁 + iccf 班別編號 → 列表反映
  *   4. 人員角色 filter — 切到「小班長」只顯示該角色
@@ -52,13 +52,13 @@ test.describe('Admin — /admin CRUD flows', () => {
     // Default tab = classes
     await expect(page.getByText('新增班級')).toBeVisible()
 
-    await page.getByRole('button', { name: /👤 人員/ }).click()
+    await page.getByRole('button', { name: /^人員$/ }).click()
     await expect(page.getByText('第一次設定流程')).toBeVisible()
 
-    await page.getByRole('button', { name: /🔗 iccf/ }).click()
+    await page.getByRole('button', { name: /^iccf$/ }).click()
     await expect(page.getByText('關於 iccf 同步')).toBeVisible()
 
-    await page.getByRole('button', { name: /🏫 班級/ }).click()
+    await page.getByRole('button', { name: /^班級$/ }).click()
     await expect(page.getByText('新增班級')).toBeVisible()
   })
 
@@ -84,9 +84,9 @@ test.describe('Admin — /admin CRUD flows', () => {
     await goToAdmin(page)
 
     // Click the 編輯 button inside the card containing `original`.
-    // Scope to `div.bg-white` so we hit the class card, not an ancestor container.
+    // Scope to `div.card-lovable` so we hit the class card, not an ancestor container.
     await page
-      .locator('div.bg-white')
+      .locator('div.card-lovable')
       .filter({ hasText: original })
       .getByRole('button', { name: '編輯' })
       .click()
@@ -129,7 +129,7 @@ test.describe('Admin — /admin CRUD flows', () => {
     })
 
     await goToAdmin(page)
-    await page.getByRole('button', { name: /👤 人員/ }).click()
+    await page.getByRole('button', { name: /^人員$/ }).click()
 
     // Filter by 小班長 — only juniorName should be visible.
     await page.getByRole('button', { name: /^小班長/ }).click()
@@ -154,12 +154,12 @@ test.describe('Admin — /admin CRUD flows', () => {
     })
 
     await goToAdmin(page)
-    await page.getByRole('button', { name: /👤 人員/ }).click()
+    await page.getByRole('button', { name: /^人員$/ }).click()
 
-    // Scope to the user card holding targetName (bg-white distinguishes cards
+    // Scope to the user card holding targetName (card-lovable distinguishes cards
     // from ancestor containers).
     const card = page
-      .locator('div.bg-white')
+      .locator('div.card-lovable')
       .filter({ hasText: targetName })
 
     // Wait for the PUT to resolve — the ✓ 已儲存 flash is too short (1.5 s)
@@ -183,7 +183,7 @@ test.describe('Admin — /admin CRUD flows', () => {
 
   test('iccf tab 空狀態：顯示「目前無有效 iccf session」', async ({ page }) => {
     await goToAdmin(page)
-    await page.getByRole('button', { name: /🔗 iccf/ }).click()
+    await page.getByRole('button', { name: /^iccf$/ }).click()
     await expect(page.getByText('目前無有效 iccf session')).toBeVisible({ timeout: 8000 })
   })
 

@@ -127,7 +127,7 @@ test.describe('Weekly — 本週任務', () => {
     await page.goto(`/weekly?e2e_token=${encodeURIComponent(token)}`)
     await expect(page.getByRole('heading', { name: '本週任務' })).toBeVisible()
 
-    await expect(page.getByText('🎂 近期生日（14 天內）')).toBeVisible()
+    await expect(page.getByText('近期生日（14 天內）')).toBeVisible()
     await expect(page.getByText('壽星同學')).toBeVisible()
   })
 })
