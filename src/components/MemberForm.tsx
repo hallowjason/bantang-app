@@ -42,7 +42,7 @@ function Field({ label, required, children }: {
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-gray-700">
+      <label className="text-sm font-medium text-ink">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
       {children}
@@ -50,7 +50,7 @@ function Field({ label, required, children }: {
   )
 }
 
-const inputCls = 'border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400'
+const inputCls = 'input-lovable'
 
 // ─── 主元件 ───────────────────────────────────────────────
 
@@ -225,12 +225,12 @@ export default function MemberForm({ classId, iccfClassCode, member, onClose, on
     )}
     <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-t-3xl px-5 pt-4 pb-10 flex flex-col gap-5 max-h-[92vh] overflow-y-auto"
+        className="bg-cream rounded-t-3xl border-t border-hairline px-5 pt-4 pb-10 flex flex-col gap-5 max-h-[92vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto shrink-0" />
+        <div className="w-10 h-1 bg-hairline rounded-full mx-auto shrink-0" />
 
-        <h2 className="text-lg font-bold text-gray-800 shrink-0">
+        <h2 className="text-lg font-semibold text-ink shrink-0 tracking-tight">
           {member ? '編輯班員' : '新增班員'}
         </h2>
 
@@ -266,7 +266,7 @@ export default function MemberForm({ classId, iccfClassCode, member, onClose, on
               <p className="font-semibold">
                 {iccfResult.status === 'synced'
                   ? `✓ iccf 補入成功${iccfResult.iccfMemberId ? `（ID: ${iccfResult.iccfMemberId}）` : ''}`
-                  : `⚠ ${copy?.summary ?? iccfResult.status}`
+                  : `${copy?.summary ?? iccfResult.status}`
                 }
               </p>
               {iccfResult.status !== 'synced' && copy?.suggestedReply && (
@@ -402,12 +402,10 @@ export default function MemberForm({ classId, iccfClassCode, member, onClose, on
 
           {/* ── 按鈕 ── */}
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose}
-              className="flex-1 py-3 rounded-xl border border-gray-300 text-sm font-medium text-gray-600 hover:bg-gray-50">
+            <button type="button" onClick={onClose} className="btn-ghost flex-1 py-3">
               取消
             </button>
-            <button type="submit" disabled={saving}
-              className="flex-1 py-3 rounded-xl bg-amber-700 text-white text-sm font-medium hover:bg-amber-800 disabled:opacity-50">
+            <button type="submit" disabled={saving} className="btn-primary flex-1 py-3">
               {saving ? '儲存中...' : '儲存'}
             </button>
           </div>

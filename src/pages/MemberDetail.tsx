@@ -79,17 +79,17 @@ export default function MemberDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-amber-50 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">載入中...</p>
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="text-muted text-sm">載入中...</p>
       </div>
     )
   }
 
   if (!member) {
     return (
-      <div className="min-h-screen bg-amber-50 flex flex-col items-center justify-center gap-3">
-        <p className="text-gray-500">找不到此班員</p>
-        <button onClick={() => navigate('/members')} className="text-amber-700 text-sm font-medium">
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-3">
+        <p className="text-ink">找不到此班員</p>
+        <button onClick={() => navigate('/members')} className="text-ink text-sm font-medium underline">
           ← 返回列表
         </button>
       </div>
@@ -103,17 +103,17 @@ export default function MemberDetail() {
   const birthdaySoon     = bdayDays !== null && bdayDays <= 30
 
   return (
-    <div className="min-h-screen bg-amber-50">
+    <div className="min-h-screen bg-cream">
       {/* Header */}
-      <header className="bg-white border-b border-amber-100 sticky top-0 z-10">
+      <header className="bg-cream border-b border-hairline sticky top-0 z-10">
         <div className="max-w-screen-sm mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={() => navigate('/members')} className="text-amber-700 text-sm font-medium">
+          <button onClick={() => navigate('/members')} className="text-ink text-sm font-medium">
             ← 返回
           </button>
-          <h1 className="text-base font-bold text-gray-800 truncate max-w-[160px]">{member.name}</h1>
+          <h1 className="text-base font-semibold text-ink truncate max-w-[160px] tracking-tight">{member.name}</h1>
           <button
             onClick={() => setShowEdit(true)}
-            className="text-sm font-medium text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-50"
+            className="btn-ghost text-sm px-3 py-1.5"
           >
             編輯
           </button>
@@ -125,12 +125,11 @@ export default function MemberDetail() {
         {/* 生日提醒 */}
         {birthdaySoon && (
           <div className="bg-pink-50 border border-pink-200 rounded-2xl px-5 py-3 flex items-center gap-3">
-            <span className="text-2xl">🎂</span>
             <div>
               <p className="text-sm font-semibold text-pink-700">即將生日！</p>
               <p className="text-xs text-pink-500">
                 {bdayDays === 0
-                  ? '今天是生日 🎉'
+                  ? '今天是生日'
                   : `距生日還有 ${bdayDays} 天（${formatBirthday(member.birthday)}）`}
               </p>
             </div>
@@ -138,8 +137,8 @@ export default function MemberDetail() {
         )}
 
         {/* 基本資料 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-amber-100 px-5 py-4 flex flex-col gap-2">
-          <p className="text-xs font-semibold text-gray-400 mb-1">基本資料</p>
+        <div className="card-lovable flex flex-col gap-2">
+          <p className="text-xs font-semibold text-muted mb-1">基本資料</p>
           <InfoRow label="引保師" value={member.mentor || '—'} />
           <InfoRow
             label="區域"
@@ -166,9 +165,9 @@ export default function MemberDetail() {
             <div className="flex flex-col gap-2">
               {activeClasses.map(c => (
                 <div key={c.classId}
-                  className="bg-white rounded-xl border border-amber-100 px-5 py-3 flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-800">{c.className}</span>
-                  <span className="text-xs text-gray-400">加入 {c.joinedAt}</span>
+                  className="card-lovable-compact flex items-center justify-between">
+                  <span className="text-sm font-medium text-ink">{c.className}</span>
+                  <span className="text-xs text-muted">加入 {c.joinedAt}</span>
                 </div>
               ))}
             </div>
@@ -195,9 +194,9 @@ export default function MemberDetail() {
 
         {/* 備註 */}
         {member.notes && (
-          <div className="bg-white rounded-2xl shadow-sm border border-amber-100 px-5 py-4">
-            <p className="text-xs font-medium text-gray-400 mb-1">備註</p>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{member.notes}</p>
+          <div className="card-lovable">
+            <p className="text-xs font-medium text-muted mb-1">備註</p>
+            <p className="text-sm text-ink whitespace-pre-wrap">{member.notes}</p>
           </div>
         )}
 
@@ -205,15 +204,15 @@ export default function MemberDetail() {
         <section>
           <SectionTitle>出席記錄（共 {attendance.length} 筆）</SectionTitle>
           {attendance.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-amber-100 py-10 text-center">
-              <p className="text-sm text-gray-400">尚無出席記錄</p>
+            <div className="card-lovable py-10 text-center">
+              <p className="text-sm text-muted">尚無出席記錄</p>
             </div>
           ) : (
             <ul className="flex flex-col gap-2">
               {attendance.map(rec => (
                 <li key={rec.id}
-                  className="bg-white rounded-xl shadow-sm border border-amber-100 px-5 py-3 flex items-center justify-between">
-                  <span className="text-sm text-gray-700">{rec.date}</span>
+                  className="card-lovable-compact flex items-center justify-between">
+                  <span className="text-sm text-ink">{rec.date}</span>
                   <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
                     rec.status === 'present' ? 'bg-green-100 text-green-700'
                     : rec.status === 'leave'   ? 'bg-amber-100 text-amber-700'
@@ -245,26 +244,26 @@ export default function MemberDetail() {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs text-gray-400 w-14 shrink-0">{label}</span>
-      <span className="text-sm text-gray-800">{value}</span>
+      <span className="text-xs text-muted w-14 shrink-0">{label}</span>
+      <span className="text-sm text-ink">{value}</span>
     </div>
   )
 }
 
 function StatCard({ value, label, small }: { value: string | number; label: string; small?: boolean }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-4 text-center flex flex-col items-center justify-center">
-      <p className={`font-bold text-amber-700 leading-tight ${small ? 'text-base' : 'text-3xl'}`}>
+    <div className="card-lovable-compact py-4 text-center flex flex-col items-center justify-center">
+      <p className={`font-semibold text-ink leading-tight ${small ? 'text-base' : 'text-3xl'}`}>
         {value}
       </p>
-      <p className="text-xs text-gray-400 mt-1">{label}</p>
+      <p className="text-xs text-muted mt-1">{label}</p>
     </div>
   )
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
+    <h2 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3 px-1">
       {children}
     </h2>
   )

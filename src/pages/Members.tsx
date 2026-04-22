@@ -39,14 +39,14 @@ function RemoveDialog({ member, classId, removedBy, onCancel, onRemoved }: Remov
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm p-6 flex flex-col gap-4">
-        <h2 className="text-base font-bold text-gray-800">移除出班</h2>
-        <p className="text-sm text-gray-600">
+      <div className="card-lovable w-full max-w-sm flex flex-col gap-4">
+        <h2 className="text-base font-semibold text-ink tracking-tight">移除出班</h2>
+        <p className="text-sm text-ink">
           確定要將 <span className="font-semibold">{member.name}</span> 移除出本班？
           此操作可復原，班員資料不會刪除。
         </p>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-ink">
             移除原因 <span className="text-red-400">*</span>
           </label>
           <textarea
@@ -55,21 +55,21 @@ function RemoveDialog({ member, classId, removedBy, onCancel, onRemoved }: Remov
             placeholder="請填寫移除原因"
             rows={3}
             autoFocus
-            className="border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+            className="input-lovable resize-none"
           />
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 py-3 rounded-xl border border-gray-300 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="btn-ghost flex-1 py-3"
           >
             取消
           </button>
           <button
             onClick={handleConfirm}
             disabled={removing}
-            className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50"
+            className="flex-1 py-3 rounded-md bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition-opacity"
           >
             {removing ? '移除中...' : '確認移除'}
           </button>
@@ -197,23 +197,23 @@ export default function Members() {
   }
 
   return (
-    <div className="min-h-screen bg-amber-50">
+    <div className="min-h-screen bg-cream">
       {/* Header */}
-      <header className="bg-white border-b border-amber-100 sticky top-0 z-10">
+      <header className="bg-cream border-b border-hairline sticky top-0 z-10">
         <div className="max-w-screen-sm mx-auto px-4 py-3 flex items-center justify-between">
           <div className="w-12" />
-          <h1 className="text-base font-bold text-gray-800">班員管理</h1>
+          <h1 className="text-base font-semibold text-ink tracking-tight">班員管理</h1>
           {user?.classId ? (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowImport(true)}
-                className="text-xs text-amber-700 border border-amber-300 px-2.5 py-1.5 rounded-lg hover:bg-amber-50 active:bg-amber-100"
+                className="btn-ghost text-xs px-2.5 py-1.5"
               >
                 試算表匯入
               </button>
               <button
                 onClick={() => setShowForm(true)}
-                className="text-sm font-medium text-white bg-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-800 active:bg-amber-900"
+                className="btn-primary text-sm px-3 py-1.5"
               >
                 ＋ 新增
               </button>
@@ -226,7 +226,7 @@ export default function Members() {
 
       {!user?.classId && (
         <div className="max-w-screen-sm mx-auto px-4 pt-4">
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <p className="text-sm text-ink card-lovable-compact">
             尚未設定所屬班級，請聯絡管理員。
           </p>
         </div>
@@ -234,16 +234,15 @@ export default function Members() {
 
       <main className="max-w-screen-sm mx-auto px-4 pt-5 pb-20">
         {loading ? (
-          <p className="text-center text-gray-400 text-sm py-16">載入中...</p>
+          <p className="text-center text-muted text-sm py-16">載入中...</p>
         ) : members.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-5xl mb-4">👥</p>
-            <p className="text-gray-500 font-medium">尚無班員</p>
-            <p className="text-gray-400 text-sm mt-1">點右上角「＋ 新增」開始建立</p>
+            <p className="text-ink font-semibold">尚無班員</p>
+            <p className="text-muted text-sm mt-1">點右上角「＋ 新增」開始建立</p>
           </div>
         ) : (
           <>
-            <p className="text-xs text-gray-400 mb-3 px-1">
+            <p className="text-xs text-muted mb-3 px-1">
               共 {members.length} 位班員・長按可移除出班
             </p>
             <ul className="flex flex-col gap-3">
@@ -259,35 +258,41 @@ export default function Members() {
                       onPointerUp={endPress}
                       onPointerLeave={endPress}
                       onPointerCancel={endPress}
-                      className="w-full text-left bg-white rounded-2xl shadow-sm border border-amber-100 px-5 py-4 hover:bg-amber-50 active:scale-[0.98] transition-all select-none"
+                      className="w-full text-left card-lovable py-4 hover:bg-[var(--color-tint-hover)] active:scale-[0.98] transition-all select-none"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="font-semibold text-gray-800">{member.name}</span>
+                        <span className="font-semibold text-ink">{member.name}</span>
                         <div className="flex items-center gap-2 shrink-0">
                           {copy && member.iccfStatus !== 'synced' && (
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                              copy.tone === 'green' ? 'bg-green-50 text-green-700 border-green-200' :
-                              copy.tone === 'red'   ? 'bg-red-50 text-red-500 border-red-200' :
-                              copy.tone === 'blue'  ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                                      'bg-amber-50 text-amber-700 border-amber-200'
+                            <span className={`badge-lovable text-xs ${
+                              copy.tone === 'green' ? 'text-green-700' :
+                              copy.tone === 'red'   ? 'text-red-500' :
+                              copy.tone === 'blue'  ? 'text-blue-600' :
+                                                      'text-ink'
                             }`}>
+                              <span className={`badge-dot ${
+                                copy.tone === 'green' ? 'bg-green-500' :
+                                copy.tone === 'red'   ? 'bg-red-400' :
+                                copy.tone === 'blue'  ? 'bg-blue-500' :
+                                                        'bg-ink'
+                              }`} />
                               {copy.badge}
                             </span>
                           )}
-                          <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                          <span className="badge-lovable text-xs font-semibold">
                             {member.initialAttendanceCount} 堂
                           </span>
                         </div>
                       </div>
                       {regionLabel(member) && (
-                        <p className="text-xs text-gray-500 mt-1.5">{regionLabel(member)}</p>
+                        <p className="text-xs text-muted mt-1.5">{regionLabel(member)}</p>
                       )}
                     </button>
                     {retryable && (
                       <button
                         onClick={e => { e.stopPropagation(); handleRepair(member) }}
                         disabled={isRepairing}
-                        className="mt-1 w-full text-xs text-amber-700 border border-amber-200 rounded-xl py-2 hover:bg-amber-50 active:bg-amber-100 disabled:opacity-50 transition-colors"
+                        className="btn-ghost mt-1 w-full text-xs py-2"
                       >
                         {isRepairing ? '同步中…' : '重試 iccf 補入'}
                       </button>

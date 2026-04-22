@@ -28,11 +28,11 @@ import type { WeeklyTask, ScheduleData, Class, UpcomingSpeaker, Member } from '.
 function HostDisplay({ label, name }: { label: string; name: string }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-sm text-gray-500 w-16 shrink-0">{label}</span>
-      <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
+      <span className="text-sm text-muted w-16 shrink-0">{label}</span>
+      <div className="flex-1 card-lovable-compact">
         {name
-          ? <span className="text-sm font-medium text-gray-800">{name}</span>
-          : <span className="text-xs text-gray-400">（課表未設定）</span>
+          ? <span className="text-sm font-medium text-ink">{name}</span>
+          : <span className="text-xs text-muted">（課表未設定）</span>
         }
       </div>
     </div>
@@ -236,8 +236,8 @@ ${s.name}慈悲：
 
   if (!user || (!selectedClassId && user.role !== 'head_leader')) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-amber-50">
-        <p className="text-gray-400 text-sm">尚未分配班別，請聯絡大領班</p>
+      <div className="flex items-center justify-center min-h-screen bg-cream">
+        <p className="text-muted text-sm">尚未分配班別，請聯絡大領班</p>
       </div>
     )
   }
@@ -245,18 +245,18 @@ ${s.name}慈悲：
   const isHeadLeader = user.role === 'head_leader'
 
   return (
-    <div className="min-h-screen bg-amber-50 pb-24">
+    <div className="min-h-screen bg-cream pb-24">
       <div className="max-w-lg mx-auto px-4 pt-6 flex flex-col gap-5">
 
         {/* ── 標題 ── */}
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-amber-800">本週任務</h1>
+          <h1 className="text-base font-semibold text-ink tracking-tight">本週任務</h1>
           {/* 大領班班別切換 */}
           {isHeadLeader && allClasses.length > 0 && (
             <select
               value={selectedClassId}
               onChange={e => setSelectedClassId(e.target.value)}
-              className="text-xs border border-amber-200 bg-amber-50 rounded-lg px-2 py-1.5 text-amber-800"
+              className="input-lovable text-xs px-2 py-1.5 w-auto"
             >
               {allClasses.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -266,37 +266,38 @@ ${s.name}慈悲：
         </div>
 
         {/* ── 週次導航 ── */}
-        <div className="flex items-center justify-between bg-white rounded-2xl shadow-sm px-4 py-3">
+        <div className="card-lovable !py-2 !px-3 flex items-center justify-between">
           <button
             onClick={() => setWeekStart(w => shiftWeek(w, -1))}
-            className="px-3 py-1 rounded-xl text-lg hover:bg-amber-50 active:bg-amber-100 transition-colors"
+            className="px-3 py-1 rounded-md text-lg text-ink hover:bg-[var(--color-tint-hover)] transition-colors"
           >
             ‹
           </button>
-          <span className="text-sm font-medium text-gray-700 text-center">
+          <span className="text-sm font-medium text-ink text-center">
             {formatWeekRange(weekStart)}
           </span>
           <button
             onClick={() => setWeekStart(w => shiftWeek(w, 1))}
-            className="px-3 py-1 rounded-xl text-lg hover:bg-amber-50 active:bg-amber-100 transition-colors"
+            className="px-3 py-1 rounded-md text-lg text-ink hover:bg-[var(--color-tint-hover)] transition-colors"
           >
             ›
           </button>
         </div>
 
         {taskLoading ? (
-          <p className="text-center text-sm text-gray-400 py-8">載入中...</p>
+          <p className="text-center text-sm text-muted py-8">載入中...</p>
         ) : (
           <>
             {/* ── 近期生日（最上方，14 天內）── */}
             {upcomingBirthdays.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-col gap-3">
-                <h2 className="text-sm font-semibold text-gray-600">🎂 近期生日（14 天內）</h2>
+              <div className="card-lovable flex flex-col gap-3">
+                <h2 className="text-sm font-semibold text-ink">近期生日（14 天內）</h2>
                 <div className="flex flex-col gap-2">
                   {upcomingBirthdays.map(({ member, daysUntil }) => (
                     <div key={member.id} className="flex items-center justify-between">
-                      <span className="text-sm text-gray-700">{member.name}</span>
-                      <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                      <span className="text-sm text-ink">{member.name}</span>
+                      <span className="badge-lovable text-xs text-pink-600">
+                        <span className="badge-dot bg-pink-400" />
                         {daysUntil === 0 ? '今天！' : `${daysUntil}天後`}（{member.birthday.replace('-', '/')}）
                       </span>
                     </div>
@@ -322,8 +323,8 @@ ${s.name}慈悲：
 
             {/* ── 主持/操持者（有 schedule 時顯示）── */}
             {schedule && (
-              <div className="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-col gap-3">
-                <h2 className="text-sm font-semibold text-gray-600">主持/操持者</h2>
+              <div className="card-lovable flex flex-col gap-3">
+                <h2 className="text-sm font-semibold text-ink">主持/操持者</h2>
                 <HostDisplay label="本週操持" name={schedule.hostThisWeek} />
                 <HostDisplay label="下週操持" name={schedule.hostNextWeek} />
               </div>
@@ -331,21 +332,21 @@ ${s.name}慈悲：
 
             {/* ── 習勞 ── */}
             {schedule?.cleaningDuty && (
-              <div className="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-col gap-2">
-                <h2 className="text-sm font-semibold text-gray-600">🧹 本週習勞</h2>
-                <p className="text-sm text-gray-700">{schedule.cleaningDuty}</p>
+              <div className="card-lovable flex flex-col gap-2">
+                <h2 className="text-sm font-semibold text-ink">本週習勞</h2>
+                <p className="text-sm text-ink">{schedule.cleaningDuty}</p>
               </div>
             )}
 
             {/* ── 備註 ── */}
-            <div className="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-col gap-2">
-              <h2 className="text-sm font-semibold text-gray-600">備註</h2>
+            <div className="card-lovable flex flex-col gap-2">
+              <h2 className="text-sm font-semibold text-ink">備註</h2>
               <textarea
                 value={task?.notes ?? ''}
                 onChange={e => update({ notes: e.target.value })}
                 placeholder="輸入今天發生的事情，會同步顯示在統計/班級趨勢/該日期下方對話泡泡"
                 rows={3}
-                className="text-sm text-gray-700 border border-gray-200 rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:border-amber-400"
+                className="input-lovable text-sm resize-none"
               />
             </div>
           </>
@@ -384,23 +385,23 @@ function ScheduleSection({
 }) {
   if (state === 'loading') {
     return (
-      <div className="bg-white rounded-2xl shadow-sm px-5 py-5 text-center">
-        <p className="text-sm text-gray-400">讀取課表中...</p>
+      <div className="card-lovable text-center">
+        <p className="text-sm text-muted">讀取課表中...</p>
       </div>
     )
   }
 
   if (state === 'no_token') {
     return (
-      <div className="bg-white rounded-2xl shadow-sm px-5 py-5 flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-gray-600">課表連接</h2>
-        <p className="text-xs text-gray-500">
+      <div className="card-lovable flex flex-col gap-3">
+        <h2 className="text-sm font-semibold text-ink">課表連接</h2>
+        <p className="text-xs text-muted leading-relaxed">
           需要連接 Google 課表才能顯示操持人與講師提醒。<br />
           請確認您的 Google 帳號已有課表的閱覽權限。
         </p>
         <button
           onClick={onAuthorize}
-          className="w-full py-2.5 rounded-xl bg-amber-700 text-white text-sm font-medium hover:bg-amber-800 transition-colors"
+          className="btn-primary w-full py-2.5"
         >
           連接 Google 課表
         </button>
@@ -410,9 +411,9 @@ function ScheduleSection({
 
   if (state === 'no_config') {
     return (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
-        <p className="text-xs text-amber-700 font-medium">⚠️ 未設定課表分頁</p>
-        <p className="text-xs text-amber-600 mt-1">
+      <div className="card-lovable-compact">
+        <p className="text-xs text-ink font-medium">未設定課表分頁</p>
+        <p className="text-xs text-muted mt-1 leading-relaxed">
           請大領班在管理後台「班級管理」為此班設定「課表分頁名稱」與「等級班標頭」。
         </p>
       </div>
@@ -424,7 +425,7 @@ function ScheduleSection({
       <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex flex-col gap-2">
         <p className="text-xs text-red-700 font-medium">課表讀取失敗</p>
         <p className="text-xs text-red-500">{error}</p>
-        <button onClick={onRefresh} className="text-xs text-amber-700 underline self-start">
+        <button onClick={onRefresh} className="text-xs text-ink underline self-start">
           重新嘗試
         </button>
       </div>
@@ -438,23 +439,23 @@ function ScheduleSection({
   const futureSpeakers   = schedule.upcomingSpeakers.filter(s => s.weekLabel !== '本週').slice(0, 2)
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-col gap-4">
+    <div className="card-lovable flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-600">🗒 講師/講題</h2>
+        <h2 className="text-sm font-semibold text-ink">講師/講題</h2>
         <button
           onClick={onRefresh}
-          className="text-xs text-gray-400 hover:text-amber-600 transition-colors"
+          className="text-xs text-muted hover:text-ink transition-colors"
         >
           重新同步
         </button>
       </div>
 
       {syncedLabel && (
-        <p className="text-xs text-gray-400 -mt-2">{syncedLabel}</p>
+        <p className="text-xs text-muted -mt-2">{syncedLabel}</p>
       )}
 
       {!hasSpeakers ? (
-        <p className="text-xs text-gray-400">課表中未來 4 週無講師安排</p>
+        <p className="text-xs text-muted">課表中未來 4 週無講師安排</p>
       ) : (
         <>
           {/* ── 本週（大字，無邀請 checkbox）── */}
@@ -463,13 +464,13 @@ function ScheduleSection({
               {thisWeekSpeakers.map(s => (
                 <div key={s.date}>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-amber-600 font-medium">{s.weekLabel}</span>
-                    <span className="text-xs text-gray-300">{s.date.slice(5).replace('-', '/')}</span>
+                    <span className="text-xs text-ink font-medium">{s.weekLabel}</span>
+                    <span className="text-xs text-muted">{s.date.slice(5).replace('-', '/')}</span>
                   </div>
                   {s.name ? (
                     <div className="mt-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xl font-bold text-gray-800">{s.name}</span>
+                        <span className="text-xl font-semibold text-ink">{s.name}</span>
                         {/* 已驗收（只有課表 驗=TRUE 才顯示） */}
                         {s.verifyNeeded && (
                           <label className="flex items-center gap-1 cursor-pointer">
@@ -484,11 +485,11 @@ function ScheduleSection({
                         )}
                       </div>
                       {s.topic && (
-                        <p className="text-sm text-gray-500 mt-0.5">{s.topic}</p>
+                        <p className="text-sm text-muted mt-0.5">{s.topic}</p>
                       )}
                     </div>
                   ) : (
-                    <span className="text-sm text-gray-300">（無安排）</span>
+                    <span className="text-sm text-muted">（無安排）</span>
                   )}
                 </div>
               ))}
@@ -498,30 +499,30 @@ function ScheduleSection({
           {/* ── 未來兩週（小字，有邀請 checkbox）── */}
           {futureSpeakers.length > 0 && (
             <div className="flex flex-col gap-1">
-              <p className="text-xs text-gray-400 font-medium">未來兩週</p>
+              <p className="text-xs text-muted font-medium">未來兩週</p>
               <div className="flex flex-col gap-3">
                 {futureSpeakers.map(s => (
                   <div key={s.date} className="flex gap-3">
                     {/* 週標籤 + 日期 */}
                     <div className="flex flex-col items-start shrink-0 pt-0.5">
-                      <span className="text-xs text-gray-400 w-10">{s.weekLabel}</span>
-                      <span className="text-xs text-gray-300">{s.date.slice(5).replace('-', '/')}</span>
+                      <span className="text-xs text-muted w-10">{s.weekLabel}</span>
+                      <span className="text-xs text-muted">{s.date.slice(5).replace('-', '/')}</span>
                     </div>
 
                     {s.name ? (
                       <div className="flex-1 min-w-0">
                         {/* 講師名稱 + 勾選區 */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm text-gray-800 font-medium">{s.name}</span>
+                          <span className="text-sm text-ink font-medium">{s.name}</span>
                           {/* 已邀請 */}
                           <label className="flex items-center gap-1 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={task?.speakerStatuses?.[s.date] ?? false}
                               onChange={e => onToggleSpeaker(s.date, e.target.checked)}
-                              className="w-3.5 h-3.5 accent-amber-700"
+                              className="w-3.5 h-3.5 accent-black"
                             />
-                            <span className="text-xs text-gray-500">已邀請</span>
+                            <span className="text-xs text-muted">已邀請</span>
                           </label>
                           {/* 已驗收（只有課表 驗=TRUE 才顯示） */}
                           {s.verifyNeeded && (
@@ -538,18 +539,18 @@ function ScheduleSection({
                           {/* 複製邀請通知 */}
                           <button
                             onClick={() => onCopyInvitation(s)}
-                            className="text-xs text-amber-600 hover:text-amber-800 underline transition-colors shrink-0"
+                            className="text-xs text-ink underline hover:opacity-70 transition-opacity shrink-0"
                           >
                             {copiedDate === s.date ? '✓ 已複製' : '複製邀請'}
                           </button>
                         </div>
                         {/* 講題（灰色小字） */}
                         {s.topic && (
-                          <p className="text-xs text-gray-400 mt-0.5 truncate">{s.topic}</p>
+                          <p className="text-xs text-muted mt-0.5 truncate">{s.topic}</p>
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-300 pt-0.5">（無安排）</span>
+                      <span className="text-xs text-muted pt-0.5">（無安排）</span>
                     )}
                   </div>
                 ))}

@@ -79,23 +79,20 @@ export default function Setup() {
   // ── 全頁載入中 ──
   if (loading || checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-amber-50">
-        <p className="text-gray-400 text-sm">載入中...</p>
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <p className="text-muted text-sm">載入中...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-amber-50 px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8 flex flex-col gap-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-cream px-4">
+      <div className="w-full max-w-sm card-lovable flex flex-col gap-6 py-8">
 
         {/* 標頭 */}
         <div className="flex flex-col items-center gap-2">
-          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-3xl">
-            ⚙️
-          </div>
-          <h1 className="text-xl font-bold text-amber-800">初始設定</h1>
-          <p className="text-sm text-gray-500 text-center">首次使用，請設定大領班帳號</p>
+          <h1 className="text-xl font-semibold text-ink tracking-tight">初始設定</h1>
+          <p className="text-sm text-muted text-center">首次使用，請設定大領班帳號</p>
         </div>
 
         {/* 錯誤訊息 */}
@@ -115,7 +112,7 @@ export default function Setup() {
             </p>
             <button
               onClick={() => navigate('/attendance')}
-              className="mt-2 text-xs text-amber-700 underline"
+              className="mt-2 text-xs text-ink underline"
             >
               返回點名頁
             </button>
@@ -132,7 +129,7 @@ export default function Setup() {
         ) : !user ? (
           <div className="flex flex-col gap-4">
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <p className="text-xs text-amber-700 font-medium">💡 說明</p>
+              <p className="text-xs text-amber-700 font-medium">說明</p>
               <p className="text-xs text-amber-600 mt-1">
                 目前系統尚未設定大領班。<br />
                 請先以 Google 帳號登入，再將此帳號設為大領班。
@@ -141,7 +138,7 @@ export default function Setup() {
             <button
               onClick={handleGoogleSignIn}
               disabled={loginLoading}
-              className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="btn-ghost w-full py-3"
             >
               {/* Google SVG */}
               <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -159,7 +156,7 @@ export default function Setup() {
           <div className="flex flex-col gap-4">
             {/* 說明卡 */}
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <p className="text-xs text-amber-700 font-medium">💡 說明</p>
+              <p className="text-xs text-amber-700 font-medium">說明</p>
               <p className="text-xs text-amber-600 mt-1">
                 系統目前尚無大領班。點擊下方按鈕，可將您的帳號設為大領班，
                 之後即可在管理後台建立班別、指派領班角色。
@@ -168,8 +165,8 @@ export default function Setup() {
 
             {/* 目前登入帳號預覽 */}
             <div className="flex flex-col gap-1.5">
-              <p className="text-xs text-gray-400">目前登入帳號</p>
-              <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+              <p className="text-xs text-muted">目前登入帳號</p>
+              <div className="flex items-center gap-3 card-lovable-compact">
                 {user.photoURL && (
                   <img
                     src={user.photoURL}
@@ -178,10 +175,10 @@ export default function Setup() {
                   />
                 )}
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 truncate">
+                  <p className="text-sm font-semibold text-ink truncate">
                     {user.name || '（無姓名）'}
                   </p>
-                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                  <p className="text-xs text-muted truncate">{user.email}</p>
                 </div>
               </div>
             </div>
@@ -190,7 +187,7 @@ export default function Setup() {
             <button
               onClick={handlePromote}
               disabled={promoting}
-              className="w-full py-3 rounded-xl bg-amber-700 text-white text-sm font-semibold hover:bg-amber-800 active:scale-95 disabled:opacity-60 transition-all"
+              className="btn-primary w-full py-3"
             >
               {promoting ? '設定中...' : '將此帳號設為大領班'}
             </button>
@@ -201,7 +198,7 @@ export default function Setup() {
         <div className="text-center">
           <button
             onClick={() => navigate('/login')}
-            className="text-xs text-gray-400 hover:text-gray-600"
+            className="text-xs text-muted hover:text-ink"
           >
             ← 返回登入頁
           </button>

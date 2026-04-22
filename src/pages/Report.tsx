@@ -42,7 +42,7 @@ function buildReport(params: {
   lines.push('')
   if (notes) lines.push(`備註：${notes}`)
   lines.push('')
-  lines.push('— 由佛堂進階班系統自動產生')
+  lines.push('— 由 SJJB 系統自動產生')
 
   return lines.join('\n')
 }
@@ -133,28 +133,28 @@ export default function Report() {
 
   if (!user?.classId) {
     return (
-      <div className="min-h-screen bg-amber-50 flex items-center justify-center px-4 pb-16">
-        <p className="text-sm text-amber-700 bg-white border border-amber-200 rounded-xl px-5 py-4 text-center shadow-sm">
+      <div className="min-h-screen bg-cream flex items-center justify-center px-4 pb-16">
+        <p className="text-sm text-ink card-lovable text-center">
           尚未設定所屬班級<br />
-          <span className="text-gray-400">請聯絡管理員</span>
+          <span className="text-muted">請聯絡管理員</span>
         </p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-amber-50">
+    <div className="min-h-screen bg-cream">
 
       {/* Header */}
-      <header className="bg-white border-b border-amber-100 sticky top-0 z-10">
+      <header className="bg-cream border-b border-hairline sticky top-0 z-10">
         <div className="max-w-screen-sm mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <h1 className="text-base font-bold text-gray-800 shrink-0">出席報表</h1>
+          <h1 className="text-base font-semibold text-ink shrink-0 tracking-tight">出席報表</h1>
           <input
             type="date"
             value={date}
             max={todayStr()}
             onChange={e => setDate(e.target.value)}
-            className="text-sm text-gray-700 border border-amber-200 rounded-lg px-2.5 py-1 bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="input-lovable w-auto text-sm px-2.5 py-1"
           />
         </div>
       </header>
@@ -169,21 +169,21 @@ export default function Report() {
         </div>
 
         {/* 報表預覽 */}
-        <section className="bg-white rounded-2xl shadow-sm border border-amber-100">
+        <section className="card-lovable !p-0">
           <div className="px-5 pt-4 pb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider">
               報表預覽
             </p>
-            {loading && <span className="text-xs text-gray-400">更新中...</span>}
+            {loading && <span className="text-xs text-muted">更新中...</span>}
           </div>
-          <pre className="px-5 pb-5 text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
+          <pre className="px-5 pb-5 text-sm text-ink whitespace-pre-wrap font-sans leading-relaxed">
             {reportText}
           </pre>
         </section>
 
         {/* 備註編輯 */}
-        <section className="bg-white rounded-2xl shadow-sm border border-amber-100 px-5 py-4 flex flex-col gap-2">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+        <section className="card-lovable flex flex-col gap-2">
+          <label className="text-xs font-semibold text-muted uppercase tracking-wider">
             備註（選填）
           </label>
           <textarea
@@ -191,21 +191,17 @@ export default function Report() {
             onChange={e => setNotes(e.target.value)}
             placeholder="輸入備註，會自動加入報表..."
             rows={2}
-            className="w-full text-sm text-gray-800 placeholder-gray-300 resize-none focus:outline-none"
+            className="w-full text-sm text-ink placeholder:text-muted bg-transparent resize-none focus:outline-none"
           />
         </section>
       </main>
 
       {/* 固定複製按鈕（BottomNav 上方） */}
       <div className="fixed bottom-16 left-0 right-0 z-10">
-        <div className="max-w-screen-sm mx-auto px-4 py-3 bg-white/90 backdrop-blur-sm border-t border-amber-100">
+        <div className="max-w-screen-sm mx-auto px-4 py-3 bg-cream/90 backdrop-blur-sm border-t border-hairline">
           <button
             onClick={handleCopy}
-            className={`w-full py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] shadow-md
-              ${copied
-                ? 'bg-green-500 text-white'
-                : 'bg-amber-700 text-white hover:bg-amber-800'
-              }`}
+            className="btn-primary w-full py-3.5"
           >
             {copied ? '✓ 已複製到剪貼簿！' : '一鍵複製報表'}
           </button>
@@ -229,12 +225,12 @@ function StatCard({
   const colors = {
     green: 'text-green-600',
     amber: 'text-amber-600',
-    gray:  'text-gray-400',
+    gray:  'text-muted',
   }
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-4 text-center flex flex-col items-center justify-center gap-1">
-      <p className={`text-3xl font-bold leading-none ${colors[color]}`}>{value}</p>
-      <p className="text-xs text-gray-400">{label}</p>
+    <div className="card-lovable-compact py-4 text-center flex flex-col items-center justify-center gap-1">
+      <p className={`text-3xl font-semibold leading-none ${colors[color]}`}>{value}</p>
+      <p className="text-xs text-muted">{label}</p>
     </div>
   )
 }

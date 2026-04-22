@@ -89,20 +89,20 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
   return (
     <div className="flex flex-col gap-4">
       {/* 新增班級 */}
-      <div className="bg-white rounded-2xl shadow-sm border border-amber-100 px-5 py-4 flex flex-col gap-3">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">新增班級</p>
+      <div className="card-lovable flex flex-col gap-3">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wider">新增班級</p>
         <div className="flex gap-2">
           <input
             value={newName}
             onChange={e => setNewName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleCreate()}
             placeholder="班級名稱（例：光明禮行班）"
-            className="flex-1 border border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="input-lovable flex-1"
           />
           <button
             onClick={handleCreate}
             disabled={creating}
-            className="px-4 py-2.5 rounded-xl bg-amber-700 text-white text-sm font-medium hover:bg-amber-800 disabled:opacity-60"
+            className="btn-primary px-4 py-2.5 disabled:opacity-60"
           >
             {creating ? '...' : '建立'}
           </button>
@@ -113,66 +113,66 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
       {/* 班級列表 */}
       <div className="flex flex-col gap-2">
         {classes.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-amber-100 py-10 text-center">
-            <p className="text-gray-400 text-sm">尚無班級，請先建立</p>
+          <div className="card-lovable py-10 text-center">
+            <p className="text-muted text-sm">尚無班級，請先建立</p>
           </div>
         ) : (
           classes.map(cls => (
             <div
               key={cls.id}
-              className="bg-white rounded-2xl shadow-sm border border-amber-100 px-5 py-4 flex flex-col gap-3"
+              className="card-lovable flex flex-col gap-3"
             >
               {editId === cls.id ? (
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-400">班級名稱</label>
+                    <label className="text-xs text-muted">班級名稱</label>
                     <input
                       value={editName}
                       onChange={e => setEditName(e.target.value)}
                       autoFocus
-                      className="border border-amber-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      className="input-lovable"
                     />
                   </div>
-                  <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 flex flex-col gap-2.5">
-                    <p className="text-xs font-medium text-amber-700">📊 課表設定</p>
+                  <div className="card-lovable-compact flex flex-col gap-2.5">
+                    <p className="text-xs font-medium text-ink">課表設定</p>
                     <div className="flex flex-col gap-1">
-                      <label className="text-xs text-gray-500">分頁名稱<span className="text-gray-400 ml-1">（如：2026光明）</span></label>
+                      <label className="text-xs text-muted">分頁名稱<span className="text-muted ml-1">（如：2026光明）</span></label>
                       <input
                         value={editTabName}
                         onChange={e => setEditTabName(e.target.value)}
                         placeholder="2026光明"
-                        className="border border-amber-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        className="input-lovable text-sm px-2.5 py-1.5"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-xs text-gray-500">等級班標頭<span className="text-gray-400 ml-1">（如：禮行、義理）</span></label>
+                      <label className="text-xs text-muted">等級班標頭<span className="text-muted ml-1">（如：禮行、義理）</span></label>
                       <input
                         value={editClassLabel}
                         onChange={e => setEditClassLabel(e.target.value)}
                         placeholder="禮行"
-                        className="border border-amber-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        className="input-lovable text-sm px-2.5 py-1.5"
                       />
                     </div>
                   </div>
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex flex-col gap-2.5">
-                    <p className="text-xs font-medium text-blue-700">🔗 iccf 同步設定</p>
+                  <div className="card-lovable-compact flex flex-col gap-2.5">
+                    <p className="text-xs font-medium text-ink">iccf 同步設定</p>
                     <div className="flex flex-col gap-1">
-                      <label className="text-xs text-gray-500">iccf 班別編號<span className="text-gray-400 ml-1">（登入 iccf → 班期 → 班務，找班別編號欄，如：B3000549）</span></label>
+                      <label className="text-xs text-muted">iccf 班別編號<span className="text-muted ml-1">（登入 iccf → 班期 → 班務，找班別編號欄，如：B3000549）</span></label>
                       <input
                         value={editIccfCode}
                         onChange={e => setEditIccfCode(e.target.value.toUpperCase())}
                         placeholder="B3000549"
-                        className="border border-blue-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+                        className="input-lovable text-sm px-2.5 py-1.5 font-mono"
                       />
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleSave(cls.id)} disabled={saving}
-                      className="flex-1 py-2 rounded-xl bg-amber-700 text-white text-sm font-medium hover:bg-amber-800 disabled:opacity-60">
+                      className="btn-primary flex-1 py-2 disabled:opacity-60">
                       {saving ? '儲存中...' : '儲存'}
                     </button>
                     <button onClick={() => setEditId(null)}
-                      className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50">
+                      className="btn-ghost px-4 py-2">
                       取消
                     </button>
                   </div>
@@ -180,21 +180,21 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
               ) : (
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800">{cls.name}</p>
+                    <p className="text-sm font-semibold text-ink">{cls.name}</p>
                     {cls.sheetTabName ? (
-                      <p className="text-xs text-gray-400 mt-0.5">課表：{cls.sheetTabName}{cls.sheetClassLabel ? ` › ${cls.sheetClassLabel}` : ''}</p>
+                      <p className="text-xs text-muted mt-0.5">課表：{cls.sheetTabName}{cls.sheetClassLabel ? ` › ${cls.sheetClassLabel}` : ''}</p>
                     ) : (
-                      <p className="text-xs text-amber-500 mt-0.5">⚠ 尚未設定課表分頁</p>
+                      <p className="text-xs text-amber-500 mt-0.5">尚未設定課表分頁</p>
                     )}
                     {cls.iccfClassCode ? (
-                      <p className="text-xs text-blue-500 mt-0.5 font-mono">iccf: {cls.iccfClassCode}</p>
+                      <p className="text-xs text-muted mt-0.5 font-mono">iccf: {cls.iccfClassCode}</p>
                     ) : (
-                      <p className="text-xs text-gray-300 mt-0.5">iccf: 未設定</p>
+                      <p className="text-xs text-muted mt-0.5">iccf: 未設定</p>
                     )}
-                    <p className="text-xs text-gray-300 font-mono mt-0.5 select-all">{cls.id}</p>
+                    <p className="text-xs text-muted font-mono mt-0.5 select-all">{cls.id}</p>
                   </div>
                   <button onClick={() => openEdit(cls)}
-                    className="text-xs text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-50 shrink-0">
+                    className="btn-ghost text-xs px-3 py-1.5 shrink-0">
                     編輯
                   </button>
                 </div>
@@ -231,18 +231,18 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
   }
 
   const roleBadgeColor = (role: UserRole) => {
-    if (role === 'class_master')  return 'bg-red-100 text-red-700'
-    if (role === 'head_leader')   return 'bg-amber-100 text-amber-700'
-    if (role === 'leader')        return 'bg-orange-100 text-orange-700'
-    if (role === 'junior_leader') return 'bg-sky-100 text-sky-700'
-    return 'bg-gray-100 text-gray-500'
+    if (role === 'class_master')  return 'text-red-700'
+    if (role === 'head_leader')   return 'text-amber-700'
+    if (role === 'leader')        return 'text-orange-700'
+    if (role === 'junior_leader') return 'text-sky-700'
+    return 'text-muted'
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3">
-        <p className="text-xs text-amber-700 font-medium">💡 第一次設定流程</p>
-        <p className="text-xs text-amber-600 mt-1">
+      <div className="card-lovable-compact">
+        <p className="text-xs text-ink font-medium">第一次設定流程</p>
+        <p className="text-xs text-muted mt-1 leading-relaxed">
           1. 先在「班級管理」建立班別<br />
           2. 回到此頁，為每位領班選擇角色與班別<br />
           3. 領班下次登入即可正常使用點名功能
@@ -255,10 +255,9 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
           <button
             key={val}
             onClick={() => setRoleFilter(val)}
-            className={`text-xs px-3 py-1 rounded-full border transition-colors
-              ${roleFilter === val
-                ? 'bg-amber-700 text-white border-amber-700'
-                : 'bg-white text-gray-600 border-amber-200 hover:bg-amber-50'}`}
+            className={roleFilter === val
+              ? 'btn-primary text-xs px-3 py-1 rounded-full'
+              : 'btn-ghost text-xs px-3 py-1 rounded-full'}
           >
             {label}{val !== 'all' && ` (${users.filter(u => u.role === val).length})`}
           </button>
@@ -266,30 +265,30 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
       </div>
 
       {filteredUsers.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-amber-100 py-10 text-center">
-          <p className="text-gray-400 text-sm">{users.length === 0 ? '尚無使用者登入過' : '此角色無使用者'}</p>
+        <div className="card-lovable py-10 text-center">
+          <p className="text-muted text-sm">{users.length === 0 ? '尚無使用者登入過' : '此角色無使用者'}</p>
         </div>
       ) : (
         filteredUsers.map(u => (
           <div key={u.uid}
-            className={`bg-white rounded-2xl shadow-sm border px-5 py-4 flex flex-col gap-3 transition-colors
-              ${saved === u.uid ? 'border-green-300' : 'border-amber-100'}`}>
+            className={`card-lovable flex flex-col gap-3 transition-colors
+              ${saved === u.uid ? 'ring-1 ring-green-300' : ''}`}>
             <div className="flex items-center gap-3">
               {u.photoURL && <img src={u.photoURL} alt={u.name} className="w-9 h-9 rounded-full shrink-0" />}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800 truncate">{u.name || '（無姓名）'}</p>
-                <p className="text-xs text-gray-400 truncate">{u.email ?? '—'}</p>
+                <p className="text-sm font-semibold text-ink truncate">{u.name || '（無姓名）'}</p>
+                <p className="text-xs text-muted truncate">{u.email ?? '—'}</p>
               </div>
               {saved === u.uid && <span className="text-xs font-medium text-green-600 shrink-0">✓ 已儲存</span>}
-              {savingId === u.uid && <span className="text-xs text-gray-400 shrink-0">儲存中...</span>}
+              {savingId === u.uid && <span className="text-xs text-muted shrink-0">儲存中...</span>}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-400">角色</label>
+                <label className="text-xs text-muted">角色</label>
                 <select value={u.role} disabled={savingId === u.uid}
                   onChange={e => handleUpdate(u.uid, 'role', e.target.value)}
-                  className="border border-amber-200 rounded-xl px-2.5 py-2 text-sm text-gray-800 bg-amber-50 focus:outline-none">
+                  className="input-lovable text-sm px-2.5 py-2">
                   <option value="class_master">主班</option>
                   <option value="head_leader">大領班</option>
                   <option value="leader">領班</option>
@@ -298,12 +297,12 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-400">所屬班別</label>
+                <label className="text-xs text-muted">所屬班別</label>
                 <select
                   value={u.classId}
                   disabled={savingId === u.uid || u.role === 'member'}
                   onChange={e => handleUpdate(u.uid, 'classId', e.target.value)}
-                  className="border border-amber-200 rounded-xl px-2.5 py-2 text-sm text-gray-800 bg-amber-50 focus:outline-none disabled:opacity-50">
+                  className="input-lovable text-sm px-2.5 py-2 disabled:opacity-50">
                   <option value="">— 未分班 —</option>
                   {classes.map(cls => (
                     <option key={cls.id} value={cls.id}>{cls.name}</option>
@@ -313,12 +312,12 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
             </div>
 
             <div className="flex gap-2 flex-wrap">
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleBadgeColor(u.role)}`}>
+              <span className={`badge-lovable text-xs font-medium ${roleBadgeColor(u.role)}`}>
                 {ROLE_LABEL[u.role]}
               </span>
               {u.role !== 'member' && (
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full
-                  ${u.classId ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
+                <span className={`badge-lovable text-xs font-medium ${u.classId ? 'text-green-600' : 'text-red-400'}`}>
+                  <span className={`badge-dot ${u.classId ? 'bg-green-500' : 'bg-red-400'}`} />
                   {u.classId ? (classes.find(c => c.id === u.classId)?.name ?? u.classId) : '未分班'}
                 </span>
               )}
@@ -385,9 +384,9 @@ function IccfTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4">
-        <p className="text-xs font-semibold text-blue-700 mb-1">關於 iccf 同步</p>
-        <p className="text-xs text-blue-600 leading-relaxed">
+      <div className="card-lovable-compact">
+        <p className="text-xs font-semibold text-ink mb-1">關於 iccf 同步</p>
+        <p className="text-xs text-muted leading-relaxed">
           登入後，伺服器保留 iccf cookie（30 分鐘閒置失效）。<br />
           密碼不會儲存。可同時存在多位領班的 session。
         </p>
@@ -395,7 +394,7 @@ function IccfTab() {
 
       <button
         onClick={() => setShowLogin(true)}
-        className="w-full py-3 rounded-2xl bg-amber-700 text-white text-sm font-medium hover:bg-amber-800"
+        className="btn-primary w-full py-3"
       >
         + 登入 iccf 帳號
       </button>
@@ -405,27 +404,27 @@ function IccfTab() {
       )}
 
       {loading ? (
-        <p className="text-center text-sm text-gray-400 py-6">載入中...</p>
+        <p className="text-center text-sm text-muted py-6">載入中...</p>
       ) : sessions.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-amber-100 py-10 text-center">
-          <p className="text-gray-400 text-sm">目前無有效 iccf session</p>
+        <div className="card-lovable py-10 text-center">
+          <p className="text-muted text-sm">目前無有效 iccf session</p>
         </div>
       ) : (
         sessions.map(s => (
-          <div key={s.sessionId} className="bg-white rounded-2xl shadow-sm border border-amber-100 px-5 py-4 flex flex-col gap-2">
+          <div key={s.sessionId} className="card-lovable flex flex-col gap-2">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-gray-800">
+                <p className="text-sm font-semibold text-ink">
                   {s.profile?.name ?? s.iccfAccount}
                 </p>
                 {s.profile?.area && (
-                  <p className="text-xs text-gray-400">{s.profile.area}</p>
+                  <p className="text-xs text-muted">{s.profile.area}</p>
                 )}
-                <p className="text-xs text-gray-300 mt-0.5">到期：{formatExpiry(s.expiresAt)}</p>
+                <p className="text-xs text-muted mt-0.5">到期：{formatExpiry(s.expiresAt)}</p>
               </div>
               <button
                 onClick={() => handleLogout(s.sessionId)}
-                className="text-xs text-red-500 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 shrink-0"
+                className="btn-ghost text-xs text-red-500 px-3 py-1.5 shrink-0"
               >
                 登出
               </button>
@@ -433,7 +432,7 @@ function IccfTab() {
             {s.classes.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
                 {s.classes.map(c => (
-                  <span key={c.classCode} className="text-xs bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-full">
+                  <span key={c.classCode} className="badge-lovable text-xs">
                     {c.classCode}
                   </span>
                 ))}
@@ -484,25 +483,25 @@ export default function Admin() {
   useEffect(() => { loadAll() }, [loadAll])
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'classes', label: '🏫 班級' },
-    { key: 'users',   label: '👤 人員' },
-    { key: 'iccf',    label: '🔗 iccf' },
+    { key: 'classes', label: '班級' },
+    { key: 'users',   label: '人員' },
+    { key: 'iccf',    label: 'iccf' },
   ]
 
   return (
-    <div className="min-h-screen bg-amber-50">
-      <header className="bg-white border-b border-amber-100 sticky top-0 z-10">
+    <div className="min-h-screen bg-cream">
+      <header className="bg-cream border-b border-hairline sticky top-0 z-10">
         <div className="max-w-screen-sm mx-auto px-4 py-3">
-          <h1 className="text-base font-bold text-gray-800">領班管理後台</h1>
-          <p className="text-xs text-gray-400 mt-0.5">主班 / 大領班專用</p>
+          <h1 className="text-base font-semibold text-ink tracking-tight">領班管理後台</h1>
+          <p className="text-xs text-muted mt-0.5">主班 / 大領班專用</p>
         </div>
-        <div className="max-w-screen-sm mx-auto px-4 pb-0 flex border-b border-amber-100">
+        <div className="max-w-screen-sm mx-auto px-4 pb-0 flex border-b border-hairline">
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex-1 py-2.5 text-xs font-medium border-b-2 transition-colors
                 ${tab === t.key
-                  ? 'border-amber-700 text-amber-700'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                  ? 'border-ink text-ink'
+                  : 'border-transparent text-muted hover:text-ink'}`}>
               {t.label}
             </button>
           ))}
@@ -512,7 +511,7 @@ export default function Admin() {
       <main className="max-w-screen-sm mx-auto px-4 pt-4 pb-20">
         {loading ? (
           <div className="flex justify-center py-16">
-            <p className="text-gray-400 text-sm">載入中...</p>
+            <p className="text-muted text-sm">載入中...</p>
           </div>
         ) : tab === 'classes' ? (
           <ClassesTab classes={classes} onRefresh={loadAll} />

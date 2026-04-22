@@ -10,11 +10,20 @@ import type { AppUser, AuthContextType, UserRole } from '../types'
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+// Dev-only bypass: set VITE_DEV_USER in .env.local to skip Firebase auth.
+// Never active in production builds (import.meta.env.DEV is false).
+const DEV_USER: AppUser | null =
+  import.meta.env.DEV && import.meta.env.VITE_DEV_USER
+    ? (JSON.parse(import.meta.env.VITE_DEV_USER) as AppUser)
+    : null
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<AppUser | null>(DEV_USER)
+  const [loading, setLoading] = useState(!DEV_USER)
 
   useEffect(() => {
+    if (DEV_USER) return   // bypass: skip Firebase subscription entirely
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         setUser(null)
@@ -66,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /** Re-fetch user profile from backend (after role/class change) */
   const refreshUser = async () => {
-    if (!auth.currentUser) return
+    if (DEV_USER || !auth.currentUser) return
     try {
       const res = await apiFetch('/api/users/me')
       const body = await res.json()

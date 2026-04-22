@@ -1,12 +1,12 @@
 {
-  "name": "佛堂進階班",
-  "short_name": "進階班",
-  "description": "佛堂進階班出席管理平台",
+  "name": "SJJB",
+  "short_name": "SJJB",
+  "description": "SJJB 出席管理平台",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#fffbeb",
-  "theme_color": "#b45309",
+  "background_color": "#f7f4ed",
+  "theme_color": "#f7f4ed",
   "lang": "zh-Hant",
   "icons": [
     {

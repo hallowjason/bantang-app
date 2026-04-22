@@ -131,7 +131,7 @@ function ClassBarChart({ stats }: { stats: WeekStat[] }) {
           {stats.map((s, i) => (
             <div key={i} className="flex-1 flex justify-center px-0.5">
               {s.notes && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-2 py-1 text-[10px] text-yellow-800 text-center leading-snug max-w-[80px]">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-2 py-1 text-xs text-yellow-800 text-center leading-snug max-w-[80px]">
                   {s.notes}
                 </div>
               )}
@@ -196,7 +196,7 @@ function MemberChart({
   }
 
   return (
-    <div className={expanded ? '' : 'bg-white rounded-xl p-3 shadow-sm border border-amber-50'}>
+    <div className={expanded ? '' : 'card-lovable-compact'}>
       {!expanded && (
         <div className="text-xs font-semibold mb-1 truncate" style={{ color }}>
           {history.memberName}
@@ -256,7 +256,7 @@ function MemberChart({
           )
         })}
       </svg>
-      <div className="text-[10px] text-right text-gray-400 -mt-1">
+      <div className="text-xs text-right text-muted -mt-1">
         共 {history.total} 堂
       </div>
     </div>
@@ -340,18 +340,18 @@ export default function Stats() {
   // ─── 渲染 ─────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-amber-50 pb-24">
+    <div className="min-h-screen bg-cream pb-24">
       {/* 頁首 */}
-      <header className="bg-white border-b border-amber-100 px-4 pt-safe-top">
-        <div className="max-w-screen-sm mx-auto flex items-center justify-between py-4">
-          <h1 className="text-lg font-bold text-amber-900">出席統計</h1>
+      <header className="bg-cream border-b border-hairline px-4 pt-safe-top sticky top-0 z-10">
+        <div className="max-w-screen-sm mx-auto flex items-center justify-between py-3">
+          <h1 className="text-base font-semibold text-ink tracking-tight">出席統計</h1>
 
           {/* 大領班：班別切換 */}
           {user?.role === 'head_leader' && allClasses.length > 0 && (
             <select
               value={selectedClassId}
               onChange={e => setSelectedClassId(e.target.value)}
-              className="text-sm border border-amber-200 rounded-lg px-2 py-1 bg-amber-50 text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
+              className="input-lovable text-sm px-2 py-1 w-auto"
             >
               {allClasses.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -369,10 +369,9 @@ export default function Stats() {
             <button
               key={n}
               onClick={() => setWeekCount(n)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors
-                ${weekCount === n
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-white text-gray-500 border border-gray-200'}`}
+              className={weekCount === n
+                ? 'btn-primary text-sm px-3 py-1 rounded-full'
+                : 'btn-ghost text-sm px-3 py-1 rounded-full'}
             >
               近 {n} 週
             </button>
@@ -380,17 +379,17 @@ export default function Stats() {
         </div>
 
         {/* Tab 切換 */}
-        <div className="flex bg-white rounded-xl border border-amber-100 overflow-hidden">
+        <div className="card-lovable !p-0 flex overflow-hidden">
           {(['class', 'member'] as const).map(m => (
             <button
               key={m}
               onClick={() => setMode(m)}
               className={`flex-1 py-2.5 text-sm font-semibold transition-colors
                 ${mode === m
-                  ? 'bg-amber-500 text-white'
-                  : 'text-gray-500'}`}
+                  ? 'bg-ink text-cream-surface'
+                  : 'text-muted hover:text-ink'}`}
             >
-              {m === 'class' ? '📊 班級趨勢' : '👤 班員紀錄'}
+              {m === 'class' ? '班級趨勢' : '班員紀錄'}
             </button>
           ))}
         </div>
@@ -398,7 +397,7 @@ export default function Stats() {
         {/* 載入中 */}
         {loading && (
           <div className="flex justify-center py-16">
-            <p className="text-gray-400 text-sm animate-pulse">載入中…</p>
+            <p className="text-muted text-sm animate-pulse">載入中…</p>
           </div>
         )}
 
@@ -411,14 +410,14 @@ export default function Stats() {
 
         {/* ── Tab 1：班級趨勢 ── */}
         {!loading && !error && mode === 'class' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-amber-50 p-4">
+          <div className="card-lovable">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-amber-900">各週出席人數</h2>
-              <span className="text-xs text-gray-400">{displayClassName}</span>
+              <h2 className="font-semibold text-ink">各週出席人數</h2>
+              <span className="text-xs text-muted">{displayClassName}</span>
             </div>
 
             {classStats.every(s => s.presentCount === 0) ? (
-              <p className="text-center text-gray-400 text-sm py-8">
+              <p className="text-center text-muted text-sm py-8">
                 此期間尚無出席紀錄
               </p>
             ) : (
@@ -431,8 +430,8 @@ export default function Stats() {
         {!loading && !error && mode === 'member' && (
           <div>
             {memberHistory.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm border border-amber-50 p-8 text-center">
-                <p className="text-gray-400 text-sm">此期間尚無出席紀錄</p>
+              <div className="card-lovable p-8 text-center">
+                <p className="text-muted text-sm">此期間尚無出席紀錄</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
@@ -464,16 +463,16 @@ export default function Stats() {
           onClick={() => setExpandedMember(null)}
         >
           <div
-            className="bg-white rounded-2xl p-4 w-full max-w-md"
+            className="card-lovable w-full max-w-md"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-3">
-              <span className="font-semibold text-gray-800" style={{ color: expandedMember.color }}>
+              <span className="font-semibold text-ink" style={{ color: expandedMember.color }}>
                 {expandedMember.history.memberName}
               </span>
               <button
                 onClick={() => setExpandedMember(null)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1"
+                className="text-muted hover:text-ink text-lg leading-none px-1"
               >
                 ✕
               </button>
