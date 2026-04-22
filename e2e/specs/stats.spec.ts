@@ -29,8 +29,8 @@ test.describe('Stats — 出席統計', () => {
     await seedClass(classId, 'E2E Stats Class')
     await goToStats(page, classId)
 
-    const classTab = page.getByRole('button', { name: '📊 班級趨勢' })
-    const memberTab = page.getByRole('button', { name: '👤 班員紀錄' })
+    const classTab = page.getByRole('button', { name: '班級趨勢' })
+    const memberTab = page.getByRole('button', { name: '班員紀錄' })
     await expect(classTab).toBeVisible()
     await expect(memberTab).toBeVisible()
 
@@ -72,7 +72,7 @@ test.describe('Stats — 出席統計', () => {
     await seedClass(classId, 'E2E Stats Class')
     // 不 seed 任何班員 → memberHistory 為空陣列
     await goToStats(page, classId)
-    await page.getByRole('button', { name: '👤 班員紀錄' }).click()
+    await page.getByRole('button', { name: '班員紀錄' }).click()
     await expect(page.getByText('此期間尚無出席紀錄')).toBeVisible({ timeout: 8000 })
   })
 
@@ -86,7 +86,7 @@ test.describe('Stats — 出席統計', () => {
     await goToStats(page, classId)
 
     // 切換到班員紀錄 tab
-    await page.getByRole('button', { name: '👤 班員紀錄' }).click()
+    await page.getByRole('button', { name: '班員紀錄' }).click()
 
     // 等待班員卡片出現（含「共 N 堂」文字）
     const memberCard = page.locator('button').filter({ hasText: /共/ }).first()
