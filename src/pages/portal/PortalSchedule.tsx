@@ -164,14 +164,14 @@ export default function PortalSchedule() {
 
           {/* 部分班別尚未同步提示 */}
           {hasNoSync && (
-            <p className="text-[11px] text-gray-300 text-center px-2">
+            <p className="text-xs text-gray-300 text-center px-2">
               部分班別課表尚未同步，如有疑問請洽詢領班。
             </p>
           )}
         </div>
       )}
 
-      <p className="text-[11px] text-gray-400 text-center">
+      <p className="text-xs text-gray-400 text-center">
         課表資料由領班定期同步，如有出入請洽詢領班確認。
       </p>
     </div>

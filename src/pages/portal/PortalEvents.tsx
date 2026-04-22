@@ -185,7 +185,7 @@ function EventCard({ event, past = false }: { event: PortalEvent; past?: boolean
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-ink leading-snug">{event.title}</h3>
           </div>
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${TYPE_COLOR[event.type] ?? 'bg-[var(--color-hairline)] text-muted'}`}>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${TYPE_COLOR[event.type] ?? 'bg-[var(--color-hairline)] text-muted'}`}>
             {TYPE_LABEL[event.type] ?? event.type}
           </span>
         </div>

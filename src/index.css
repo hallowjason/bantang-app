@@ -22,27 +22,7 @@
   --font-sans: "Inter", "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter", "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
 
-  /* Font Sizes +4px (原 Tailwind default → 放大版) */
-  --text-xs: 1rem;          /* 12 → 16 */
-  --text-xs--line-height: 1.5rem;
-  --text-sm: 1.125rem;      /* 14 → 18 */
-  --text-sm--line-height: 1.625rem;
-  --text-base: 1.25rem;     /* 16 → 20 */
-  --text-base--line-height: 1.875rem;
-  --text-lg: 1.375rem;      /* 18 → 22 */
-  --text-lg--line-height: 2rem;
-  --text-xl: 1.5rem;        /* 20 → 24 */
-  --text-xl--line-height: 2rem;
-  --text-2xl: 1.75rem;      /* 24 → 28 */
-  --text-2xl--line-height: 2.25rem;
-  --text-3xl: 2.125rem;     /* 30 → 34 */
-  --text-3xl--line-height: 2.5rem;
-  --text-4xl: 2.5rem;       /* 36 → 40 */
-  --text-4xl--line-height: 2.75rem;
-  --text-5xl: 3.25rem;      /* 48 → 52 */
-  --text-5xl--line-height: 1;
-  --text-6xl: 4rem;         /* 60 → 64 */
-  --text-6xl--line-height: 1;
+  /* Font sizes 使用 Tailwind 預設值（12/14/16/18/20/24/30/36/48/60px） */
 }
 
 @layer base {

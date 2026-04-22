@@ -393,7 +393,7 @@ export default function PortalEventDetail() {
           >
             {submitting ? '送出中...' : '送出意願'}
           </button>
-          <p className="text-[10px] text-muted text-center">
+          <p className="text-xs text-muted text-center">
             填寫後系統會自動通知活動負責人，不需要再另外聯絡。
           </p>
         </div>

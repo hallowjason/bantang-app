@@ -109,7 +109,7 @@ export default function PortalVenues() {
                     {/* 標頭 */}
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-semibold text-ink flex-1">{venue.name}</h4>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${CITY_COLOR[venue.city] ?? 'bg-[var(--color-hairline)] text-muted'}`}>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${CITY_COLOR[venue.city] ?? 'bg-[var(--color-hairline)] text-muted'}`}>
                         {venue.city}
                       </span>
                     </div>

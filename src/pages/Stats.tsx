@@ -131,7 +131,7 @@ function ClassBarChart({ stats }: { stats: WeekStat[] }) {
           {stats.map((s, i) => (
             <div key={i} className="flex-1 flex justify-center px-0.5">
               {s.notes && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-2 py-1 text-[10px] text-yellow-800 text-center leading-snug max-w-[80px]">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-2 py-1 text-xs text-yellow-800 text-center leading-snug max-w-[80px]">
                   {s.notes}
                 </div>
               )}
@@ -256,7 +256,7 @@ function MemberChart({
           )
         })}
       </svg>
-      <div className="text-[10px] text-right text-muted -mt-1">
+      <div className="text-xs text-right text-muted -mt-1">
         共 {history.total} 堂
       </div>
     </div>

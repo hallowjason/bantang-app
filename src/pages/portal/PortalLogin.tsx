@@ -67,7 +67,7 @@ export default function PortalLogin() {
           以 Google 帳號登入
         </button>
 
-        <p className="text-[10px] text-muted text-center leading-relaxed">
+        <p className="text-xs text-muted text-center leading-relaxed">
           登入即視為同意本系統收集您的 Google 帳號姓名，用於顯示聯絡人資訊。
         </p>
       </div>

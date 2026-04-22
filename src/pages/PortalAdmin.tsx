@@ -452,7 +452,7 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                       <p className="text-xs text-muted">負責人：{ev.responsible.map(r => r.name).join('、')}</p>
                     )}
                   </div>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
                     ev.isPublished ? 'bg-green-100 text-green-600' : 'bg-[var(--color-hairline)] text-muted'}`}>
                     {ev.isPublished ? '已上架' : '未上架'}
                   </span>
@@ -474,7 +474,7 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                     {(() => {
                       const badge = (liveCounts[ev.id] ?? 0) - (seenCounts[ev.id] ?? 0)
                       return badge > 0 ? (
-                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-bold">
                           {badge > 9 ? '9+' : badge}
                         </span>
                       ) : null
@@ -519,7 +519,7 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                         <div className="flex items-center gap-1.5">
                           <p className="text-xs font-semibold text-muted">意願回覆</p>
                           {isLiveView && (
-                            <span className="flex items-center gap-1 text-[10px] text-green-600 bg-green-50 border border-green-200 rounded-full px-1.5 py-0.5">
+                            <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 rounded-full px-1.5 py-0.5">
                               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                               即時
                             </span>
@@ -527,7 +527,7 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                         </div>
                         {total > 0 && (
                           <button onClick={() => exportCSV(ev.title)}
-                            className="text-[11px] text-ink border border-hairline rounded-lg px-2 py-0.5 hover:bg-[var(--color-tint-hover)]">
+                            className="text-xs text-ink border border-hairline rounded-lg px-2 py-0.5 hover:bg-[var(--color-tint-hover)]">
                             ↓ 匯出 CSV
                           </button>
                         )}
@@ -547,17 +547,17 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                               { key: 'no',    label: '無法', color: 'bg-red-300',    count: noCnt },
                             ].map(row => (
                               <div key={row.key} className="flex items-center gap-2">
-                                <span className="text-[11px] text-muted w-14 shrink-0">{row.label}</span>
+                                <span className="text-xs text-muted w-14 shrink-0">{row.label}</span>
                                 <div className="flex-1 h-3 bg-[var(--color-hairline)] rounded-full overflow-hidden">
                                   <div
                                     className={`h-full ${row.color} rounded-full transition-all duration-500`}
                                     style={{ width: total > 0 ? `${(row.count / total) * 100}%` : '0%' }}
                                   />
                                 </div>
-                                <span className="text-[11px] text-muted w-6 text-right shrink-0 font-medium">{row.count}</span>
+                                <span className="text-xs text-muted w-6 text-right shrink-0 font-medium">{row.count}</span>
                               </div>
                             ))}
-                            <p className="text-[11px] text-muted mt-0.5">共 {total} 筆</p>
+                            <p className="text-xs text-muted mt-0.5">共 {total} 筆</p>
                           </div>
 
                           {/* 回覆列表 */}
@@ -613,9 +613,9 @@ function EventsTab({ currentUid, currentUserName }: { currentUid: string; curren
                                         {r.name}
                                         <span className="text-muted font-normal ml-1">{r.phone}</span>
                                       </p>
-                                      {r.email && <p className="text-[11px] text-muted">{r.email}</p>}
-                                      {r.note  && <p className="text-[11px] text-muted mt-0.5">{r.note}</p>}
-                                      <p className="text-[10px] text-muted opacity-70 mt-0.5">
+                                      {r.email && <p className="text-xs text-muted">{r.email}</p>}
+                                      {r.note  && <p className="text-xs text-muted mt-0.5">{r.note}</p>}
+                                      <p className="text-xs text-muted opacity-70 mt-0.5">
                                         {new Date(r.submittedAt).toLocaleString('zh-TW', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' })}
                                       </p>
                                     </div>
@@ -907,7 +907,7 @@ function UsersTab() {
               <p className="text-xs text-muted truncate">{u.email ?? '—'}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                 u.role === 'junior_leader' ? 'bg-ink text-cream-surface' : 'bg-[var(--color-hairline)] text-muted'
               }`}>
                 {u.role === 'junior_leader' ? '小班長' : '班員'}
