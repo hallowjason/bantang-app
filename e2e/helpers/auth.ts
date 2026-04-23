@@ -45,6 +45,7 @@ export async function mintE2EToken(user: TestUser): Promise<string> {
       name: user.name,
       role: user.role,
       classId: user.classId ?? '',
+      ...(user.isAdmin === true ? { isAdmin: true } : {}),
     }),
   })
   if (!res.ok) {

@@ -3,6 +3,7 @@ import { getDB } from '../db'
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
 import { createSyncJob, getJob } from '../jobs/iccfSyncWorker'
 import { ensureAlive } from '../iccf/ensureAlive'
+import { isTopAdmin } from '../lib/permissions'
 import type { Class, Attendance, Session } from '../types'
 
 const router = Router()
@@ -32,10 +33,8 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
   }
 
   // Ownership check: the caller must be a member/leader of this class.
-  // Admins (head_leader / class_master) may sync any class.
-  const role = req.user?.role
-  const isAdmin = role === 'head_leader' || role === 'class_master'
-  if (!isAdmin && req.user?.classId !== classId) {
+  // Top admins (class_master / isAdmin) may sync any class.
+  if (!isTopAdmin(req.user) && req.user?.classId !== classId) {
     res.status(403).json({ success: false, error: '無權同步此班' })
     return
   }

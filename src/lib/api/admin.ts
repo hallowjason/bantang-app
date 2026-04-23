@@ -1,8 +1,8 @@
 import { apiGet, apiPost, apiPut } from './client'
 import type { AppUser, Class, UserRole } from '../../types'
 
-export async function checkHeadLeaderExists(): Promise<boolean> {
-  const data = await apiGet<{ exists: boolean }>('/api/admin/check-head-leader')
+export async function checkTopAdminExists(): Promise<boolean> {
+  const data = await apiGet<{ exists: boolean }>('/api/admin/check-top-admin')
   return data.exists
 }
 
@@ -12,7 +12,7 @@ export async function getAllUsers(): Promise<AppUser[]> {
 
 export async function updateUserProfile(
   userId: string,
-  data: { role?: UserRole; classId?: string },
+  data: { role?: UserRole; classId?: string; isAdmin?: boolean },
 ): Promise<void> {
   await apiPut(`/api/admin/users/${userId}`, data)
 }

@@ -7,8 +7,8 @@ import type { UserRole } from '../../src/types'
 /**
  * Phase 6 — Admin (/admin) CRUD flows.
  *
- * Phase 5 covered role-gating (head_leader/class_master vs leader). Phase 6
- * exercises the actual admin UI as head_leader:
+ * Phase 5 covered role-gating (class_master/isAdmin vs leader). Phase 6
+ * exercises the actual admin UI as class_master:
  *   1. Tab 切換 — 班級 / 人員 / iccf
  *   2. 建立班級 — 空白驗證 + 成功建立
  *   3. 編輯班級 — 改名 + 課表分頁 + iccf 班別編號 → 列表反映
@@ -37,7 +37,7 @@ async function seedUserDirect(u: {
 }
 
 async function goToAdmin(page: Page): Promise<void> {
-  const token = await mintE2EToken(TEST_USERS.headLeader)
+  const token = await mintE2EToken(TEST_USERS.classMaster)
   await page.goto(`/admin?e2e_token=${encodeURIComponent(token)}`)
   await expect(page.getByRole('heading', { name: '領班管理後台' })).toBeVisible()
   // Wait for initial loadAll() to settle — "載入中..." disappears.

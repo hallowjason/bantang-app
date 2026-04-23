@@ -29,8 +29,8 @@ test.describe('Login — authentication + role-based navigation', () => {
     await expect(nav.getByText('總覽')).toHaveCount(0)
   })
 
-  test('head_leader sees 5 bottom-nav tabs including 總覽', async ({ page }) => {
-    await signInAs(page, 'headLeader')
+  test('adminLeader (isAdmin=true) sees 5 bottom-nav tabs including 總覽', async ({ page }) => {
+    await signInAs(page, 'adminLeader')
     await expect(page).toHaveURL(/\/attendance$/)
     const nav = page.locator('nav')
     await expect(nav.getByText('點名')).toBeVisible()

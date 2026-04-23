@@ -9,14 +9,10 @@ import {
   claimEvent, unclaimEvent, updateEventResponse, subscribeToEventResponses,
 } from '../lib/api/portal'
 import { getAllUsers, updateUserProfile } from '../lib/api/admin'
+import { isPortalAdmin } from '../lib/auth/permissions'
 import type {
   AppUser, Venue, PortalEvent, EventResponse, EventType, Responsible, InterestLevel,
 } from '../types'
-
-// ─── 輔助函式 ─────────────────────────────────────────────
-
-const isPortalAdminRole = (role: string) =>
-  role === 'class_master' || role === 'head_leader' || role === 'junior_leader'
 
 // ─── 共用元件 ─────────────────────────────────────────────
 
@@ -951,7 +947,7 @@ export default function PortalAdmin() {
   }
 
   // 非班員後台管理員：導向班員入口
-  if (!user || !isPortalAdminRole(user.role)) {
+  if (!user || !isPortalAdmin(user)) {
     return <Navigate to="/portal/schedule" replace />
   }
 

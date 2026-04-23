@@ -20,6 +20,7 @@ import {
 } from '../lib/google/sheetsAuth'
 import { getAllClasses } from '../lib/api/admin'
 import { getMembers } from '../lib/api/members'
+import { isTopAdmin } from '../lib/auth/permissions'
 import type { WeeklyTask, ScheduleData, Class, UpcomingSpeaker, Member } from '../types'
 
 
@@ -74,7 +75,7 @@ export default function Weekly() {
     getAllClasses()
       .then(cls => {
         setAllClasses(cls)
-        if (user.role === 'head_leader') {
+        if (isTopAdmin(user)) {
           setSelectedClassId(user.classId || cls[0]?.id || '')
         } else {
           setSelectedClassId(user.classId)
@@ -234,15 +235,15 @@ ${s.name}慈悲：
     setTimeout(() => setCopiedDate(''), 2500)
   }
 
-  if (!user || (!selectedClassId && user.role !== 'head_leader')) {
+  if (!user || (!selectedClassId && !isTopAdmin(user))) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-cream">
-        <p className="text-muted text-sm">尚未分配班別，請聯絡大領班</p>
+        <p className="text-muted text-sm">尚未分配班別，請聯絡管理員</p>
       </div>
     )
   }
 
-  const isHeadLeader = user.role === 'head_leader'
+  const canSwitchClass = isTopAdmin(user)
 
   return (
     <div className="min-h-screen bg-cream pb-24">
@@ -251,8 +252,8 @@ ${s.name}慈悲：
         {/* ── 標題 ── */}
         <div className="flex items-center justify-between">
           <h1 className="text-base font-semibold text-ink tracking-tight">本週任務</h1>
-          {/* 大領班班別切換 */}
-          {isHeadLeader && allClasses.length > 0 && (
+          {/* 管理員班別切換 */}
+          {canSwitchClass && allClasses.length > 0 && (
             <select
               value={selectedClassId}
               onChange={e => setSelectedClassId(e.target.value)}

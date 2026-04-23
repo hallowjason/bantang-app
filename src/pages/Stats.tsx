@@ -4,6 +4,7 @@ import { getAllClasses } from '../lib/api/admin'
 import { getMembers } from '../lib/api/members'
 import { getWeekStart, shiftWeek } from '../lib/api/weekly'
 import { getAllStats } from '../lib/api/stats'
+import { isTopAdmin } from '../lib/auth/permissions'
 import type { Class, Member } from '../types'
 import type { WeekStat, MemberWeekHistory } from '../lib/api/stats'
 
@@ -287,10 +288,10 @@ export default function Stats() {
   // ── 展開班員圖表 modal ──
   const [expandedMember, setExpandedMember] = useState<{ history: MemberWeekHistory; color: string } | null>(null)
 
-  // 初始化班別（大領班可切換所有班）
+  // 初始化班別（管理員可切換所有班）
   useEffect(() => {
     if (!user) return
-    if (user.role === 'head_leader') {
+    if (isTopAdmin(user)) {
       getAllClasses()
         .then(cls => {
           setAllClasses(cls)
@@ -346,8 +347,8 @@ export default function Stats() {
         <div className="max-w-screen-sm mx-auto flex items-center justify-between py-3">
           <h1 className="text-base font-semibold text-ink tracking-tight">出席統計</h1>
 
-          {/* 大領班：班別切換 */}
-          {user?.role === 'head_leader' && allClasses.length > 0 && (
+          {/* 管理員：班別切換 */}
+          {isTopAdmin(user) && allClasses.length > 0 && (
             <select
               value={selectedClassId}
               onChange={e => setSelectedClassId(e.target.value)}

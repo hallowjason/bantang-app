@@ -10,7 +10,6 @@ const router = Router()
 
 const ALL_ROLES: readonly UserRole[] = [
   'class_master',
-  'head_leader',
   'leader',
   'junior_leader',
   'member',
@@ -19,7 +18,7 @@ const ALL_ROLES: readonly UserRole[] = [
 // ─── POST /api/_test/seed-user ──────────────────────────────────────────────
 
 router.post('/seed-user', async (req, res) => {
-  const { uid, email, name, role, classId } = req.body ?? {}
+  const { uid, email, name, role, classId, isAdmin } = req.body ?? {}
 
   if (typeof uid !== 'string' || !uid) {
     res.status(400).json({ success: false, error: 'uid required' })
@@ -30,13 +29,14 @@ router.post('/seed-user', async (req, res) => {
     return
   }
 
-  const user = {
+  const user: AppUser = {
     _id: uid,
     name: typeof name === 'string' ? name : '',
     email: typeof email === 'string' ? email : null,
     photoURL: null,
     role: role as UserRole,
     classId: typeof classId === 'string' ? classId : '',
+    ...(isAdmin === true ? { isAdmin: true } : {}),
   }
 
   await getDB().collection<AppUser>('users').updateOne(

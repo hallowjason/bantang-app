@@ -1,44 +1,39 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { checkHeadLeaderExists, updateUserProfile } from '../lib/api/admin'
+import { checkTopAdminExists, updateUserProfile } from '../lib/api/admin'
+import { isTopAdmin } from '../lib/auth/permissions'
 
 // ─── 初始設定頁 ───────────────────────────────────────────
 //
 // 使用情境：
 //   首次部署後，第一位使用者前往 /setup，
-//   確認系統尚無大領班後，自行設定為大領班並前往 /admin。
-//
-// 安全說明：
-//   • Firestore Rules 允許所有登入者讀 /users，因此可查詢是否有大領班。
-//   • 使用者可 updateDoc 自己的 document（已由 rules 允許），
-//     但前端在已有大領班時不顯示升級按鈕。
-//   • 此頁面是「公開路由」，未登入者也可進入，並引導至 Google 登入。
+//   確認系統尚無管理員後，自行設定為主班並前往 /admin。
 
 export default function Setup() {
   const { user, loading, signInWithGoogle, refreshUser } = useAuth()
   const navigate = useNavigate()
 
   const [checking, setChecking]             = useState(true)
-  const [headLeaderExists, setHeadLeaderExists] = useState(false)
+  const [adminExists, setAdminExists]       = useState(false)
   const [promoting, setPromoting]           = useState(false)
   const [done, setDone]                     = useState(false)
   const [loginLoading, setLoginLoading]     = useState(false)
   const [error, setError]                   = useState<string | null>(null)
 
-  // 如果已是大領班，直接跳 admin
+  // 如果已是最高管理者，直接跳 admin
   useEffect(() => {
-    if (!loading && user?.role === 'head_leader') {
+    if (!loading && isTopAdmin(user)) {
       navigate('/admin', { replace: true })
     }
-  }, [loading, user?.role, navigate])
+  }, [loading, user, navigate])
 
-  // 檢查是否已有大領班
+  // 檢查系統中是否已有任何最高管理者
   useEffect(() => {
     if (loading) return
-    checkHeadLeaderExists()
+    checkTopAdminExists()
       .then(exists => {
-        setHeadLeaderExists(exists)
+        setAdminExists(exists)
         setChecking(false)
       })
       .catch(() => setChecking(false))
@@ -49,8 +44,6 @@ export default function Setup() {
     setError(null)
     try {
       await signInWithGoogle()
-      // onAuthStateChanged 會自動建立 /users/{uid}，
-      // useEffect 會重新檢查 head_leader 狀態
     } catch {
       setError('登入失敗，請再試一次')
     } finally {
@@ -63,11 +56,9 @@ export default function Setup() {
     setPromoting(true)
     setError(null)
     try {
-      await updateUserProfile(user.uid, { role: 'head_leader' })
+      await updateUserProfile(user.uid, { role: 'class_master' })
       await refreshUser?.()
       setDone(true)
-      // refreshUser 後 useEffect 會偵測 role = head_leader 並自動跳轉
-      // 給 500ms 讓使用者看到成功訊息
       setTimeout(() => navigate('/admin', { replace: true }), 1200)
     } catch {
       setError('操作失敗，請再試一次')
@@ -92,7 +83,7 @@ export default function Setup() {
         {/* 標頭 */}
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-xl font-semibold text-ink tracking-tight">初始設定</h1>
-          <p className="text-sm text-muted text-center">首次使用，請設定大領班帳號</p>
+          <p className="text-sm text-muted text-center">首次使用，請設定主班帳號</p>
         </div>
 
         {/* 錯誤訊息 */}
@@ -102,13 +93,13 @@ export default function Setup() {
           </p>
         )}
 
-        {/* ── 情境 A：系統已有大領班 ── */}
-        {headLeaderExists ? (
+        {/* ── 情境 A：系統已有主班 ── */}
+        {adminExists ? (
           <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4 flex flex-col gap-2 text-center">
             <p className="text-sm font-semibold text-green-700">✓ 系統已設定完成</p>
             <p className="text-xs text-green-600">
-              大領班帳號已存在。<br />
-              請聯絡大領班在後台為您分配班別與角色。
+              主班帳號已存在。<br />
+              請聯絡主班在後台為您分配班別與角色。
             </p>
             <button
               onClick={() => navigate('/attendance')}
@@ -121,7 +112,7 @@ export default function Setup() {
         /* ── 情境 B：設定完成動畫 ── */
         ) : done ? (
           <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4 flex flex-col gap-1 text-center">
-            <p className="text-sm font-semibold text-green-700">✓ 大領班設定完成！</p>
+            <p className="text-sm font-semibold text-green-700">✓ 主班設定完成！</p>
             <p className="text-xs text-green-600">正在前往管理後台...</p>
           </div>
 
@@ -131,8 +122,8 @@ export default function Setup() {
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
               <p className="text-xs text-amber-700 font-medium">說明</p>
               <p className="text-xs text-amber-600 mt-1">
-                目前系統尚未設定大領班。<br />
-                請先以 Google 帳號登入，再將此帳號設為大領班。
+                目前系統尚未設定主班。<br />
+                請先以 Google 帳號登入，再將此帳號設為主班。
               </p>
             </div>
             <button
@@ -158,7 +149,7 @@ export default function Setup() {
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
               <p className="text-xs text-amber-700 font-medium">說明</p>
               <p className="text-xs text-amber-600 mt-1">
-                系統目前尚無大領班。點擊下方按鈕，可將您的帳號設為大領班，
+                系統目前尚無主班。點擊下方按鈕，可將您的帳號設為主班，
                 之後即可在管理後台建立班別、指派領班角色。
               </p>
             </div>
@@ -189,7 +180,7 @@ export default function Setup() {
               disabled={promoting}
               className="btn-primary w-full py-3"
             >
-              {promoting ? '設定中...' : '將此帳號設為大領班'}
+              {promoting ? '設定中...' : '將此帳號設為主班'}
             </button>
           </div>
         )}

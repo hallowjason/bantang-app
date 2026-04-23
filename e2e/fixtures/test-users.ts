@@ -6,6 +6,7 @@ export interface TestUser {
   name: string
   role: UserRole
   classId?: string
+  isAdmin?: boolean
 }
 
 export const TEST_USERS: Record<string, TestUser> = {
@@ -15,11 +16,12 @@ export const TEST_USERS: Record<string, TestUser> = {
     name: 'E2E 領班',
     role: 'leader',
   },
-  headLeader: {
-    uid: 'e2e-head-001',
-    email: 'head@e2e.test',
-    name: 'E2E 大領班',
-    role: 'head_leader',
+  adminLeader: {
+    uid: 'e2e-admin-001',
+    email: 'admin@e2e.test',
+    name: 'E2E 管理員',
+    role: 'leader',
+    isAdmin: true,
   },
   classMaster: {
     uid: 'e2e-master-001',

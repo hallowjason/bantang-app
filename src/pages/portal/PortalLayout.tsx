@@ -42,7 +42,7 @@ function PortalHeader() {
 
   // 班員側使用者（member 或 junior_leader）
   const isMemberSide = user && (user.role === 'member' || user.role === 'junior_leader')
-  // 領班側使用者（leader, head_leader, class_master）
+  // 領班側使用者（leader, class_master）
   const isLeaderSide = user && !isMemberSide
 
   return (
@@ -75,7 +75,7 @@ function PortalHeader() {
               </button>
             </>
           ) : isLeaderSide ? (
-            // leader / head_leader / class_master 已登入：顯示返回領班系統連結
+            // leader / class_master 已登入：顯示返回領班系統連結
             <Link
               to="/attendance"
               className="text-xs text-muted underline hover:text-ink transition-colors"

@@ -18,16 +18,15 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(myUid())).data;
     }
 
-    // 最高管理者：主班 或 大領班（權限相同）
+    // 最高管理者：主班 或 帶 isAdmin 標記的領班
     function isTopAdmin() {
-      return isSignedIn() && (myData().role == 'head_leader' || myData().role == 'class_master');
+      return isSignedIn() && (myData().role == 'class_master' || myData().isAdmin == true);
     }
 
-    // 班員入口後台管理員：主班 / 大領班 / 小班長
+    // 班員入口後台管理員：最高管理者 或 小班長
     function isPortalAdmin() {
       return isSignedIn() && (
-        myData().role == 'head_leader' ||
-        myData().role == 'class_master' ||
+        isTopAdmin() ||
         myData().role == 'junior_leader'
       );
     }

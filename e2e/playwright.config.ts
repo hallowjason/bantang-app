@@ -45,6 +45,9 @@ export default defineConfig({
       VITE_FIREBASE_AUTH_EMULATOR_HOST: 'localhost:9099',
       VITE_SHEET_ID: 'e2e-sheet',
       VITE_API_URL: 'http://localhost:3101',
+      // Explicitly disable the local dev auth bypass so .env.local can't
+      // leak a VITE_DEV_USER into E2E sessions.
+      VITE_DEV_USER: '',
     },
   },
 })

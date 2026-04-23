@@ -62,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             photoURL: firebaseUser.photoURL,
             role: (data.role as UserRole) ?? 'leader',
             classId: data.classId ?? '',
+            ...(data.isAdmin === true ? { isAdmin: true } : {}),
           })
         }
       } catch (err) {
@@ -86,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: (data.role as UserRole) ?? prev.role,
         classId: data.classId ?? prev.classId,
         name: data.name ?? prev.name,
+        isAdmin: data.isAdmin === true ? true : undefined,
       } : null)
     } catch (err) {
       console.error('Failed to refresh user:', err)

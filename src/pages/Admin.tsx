@@ -16,6 +16,7 @@ import {
 } from '../lib/api/iccfSession'
 import type { IccfSessionInfo, IccfLoginResult } from '../lib/api/iccfSession'
 import IccfLoginModal from '../components/IccfLoginModal'
+import { isTopAdmin } from '../lib/auth/permissions'
 import type { AppUser, Class, UserRole } from '../types'
 
 // ─── Tab 定義 ─────────────────────────────────────────────
@@ -26,7 +27,6 @@ type Tab = 'classes' | 'users' | 'iccf'
 
 const ROLE_LABEL: Record<UserRole, string> = {
   class_master:  '主班',
-  head_leader:   '大領班',
   leader:        '領班',
   junior_leader: '小班長',
   member:        '班員',
@@ -232,7 +232,6 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
 
   const roleBadgeColor = (role: UserRole) => {
     if (role === 'class_master')  return 'text-red-700'
-    if (role === 'head_leader')   return 'text-amber-700'
     if (role === 'leader')        return 'text-orange-700'
     if (role === 'junior_leader') return 'text-sky-700'
     return 'text-muted'
@@ -251,7 +250,7 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
 
       {/* 角色篩選 */}
       <div className="flex gap-1.5 flex-wrap">
-        {([['all', '全部'], ['class_master', '主班'], ['head_leader', '大領班'], ['leader', '領班'], ['junior_leader', '小班長'], ['member', '班員']] as const).map(([val, label]) => (
+        {([['all', '全部'], ['class_master', '主班'], ['leader', '領班'], ['junior_leader', '小班長'], ['member', '班員']] as const).map(([val, label]) => (
           <button
             key={val}
             onClick={() => setRoleFilter(val)}
@@ -290,7 +289,6 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
                   onChange={e => handleUpdate(u.uid, 'role', e.target.value)}
                   className="input-lovable text-sm px-2.5 py-2">
                   <option value="class_master">主班</option>
-                  <option value="head_leader">大領班</option>
                   <option value="leader">領班</option>
                   <option value="junior_leader">小班長</option>
                   <option value="member">班員</option>
@@ -462,8 +460,8 @@ export default function Admin() {
   const [classes, setClasses] = useState<Class[]>([])
   const [loading, setLoading] = useState(true)
 
-  // 只允許最高管理者（主班 / 大領班）進入
-  if (user && user.role !== 'head_leader' && user.role !== 'class_master') {
+  // 只允許最高管理者（主班 / 管理員）進入
+  if (user && !isTopAdmin(user)) {
     return <Navigate to="/attendance" replace />
   }
 
@@ -493,7 +491,7 @@ export default function Admin() {
       <header className="bg-cream border-b border-hairline sticky top-0 z-10">
         <div className="max-w-screen-sm mx-auto px-4 py-3">
           <h1 className="text-base font-semibold text-ink tracking-tight">領班管理後台</h1>
-          <p className="text-xs text-muted mt-0.5">主班 / 大領班專用</p>
+          <p className="text-xs text-muted mt-0.5">主班 / 管理員專用</p>
         </div>
         <div className="max-w-screen-sm mx-auto px-4 pb-0 flex border-b border-hairline">
           {TABS.map(t => (

@@ -3,7 +3,7 @@ import admin from 'firebase-admin'
 
 /**
  * Regression test for the intentRole privilege-escalation fix.
- * A malicious client that mints a custom token claiming intentRole='head_leader'
+ * A malicious client that mints a custom token claiming intentRole='class_master'
  * must NOT be granted that role on first login — the server should downgrade
  * self-declared elevated roles to the safe default.
  */
@@ -21,7 +21,7 @@ function ensureAdmin() {
   initialized = true
 }
 
-test('intentRole=head_leader on first login is downgraded to leader', async ({ page }) => {
+test('intentRole=class_master on first login is downgraded to leader', async ({ page }) => {
   ensureAdmin()
 
   const uid = 'e2e-attacker-001'
@@ -30,7 +30,7 @@ test('intentRole=head_leader on first login is downgraded to leader', async ({ p
   await auth.createUser({ uid, email: 'attacker@e2e.test', displayName: 'Attacker' })
 
   // Malicious custom token claiming elevated role
-  const token = await auth.createCustomToken(uid, { intentRole: 'head_leader' })
+  const token = await auth.createCustomToken(uid, { intentRole: 'class_master' })
 
   await page.goto(`/attendance?e2e_token=${encodeURIComponent(token)}`)
   await expect(page).toHaveURL(/\/attendance$/)
@@ -41,5 +41,6 @@ test('intentRole=head_leader on first login is downgraded to leader', async ({ p
   const res = await fetch(`${API_URL}/api/_test/user/${uid}`)
   const body = await res.json()
   expect(body.success).toBe(true)
-  expect(body.data.role).toBe('leader') // ← downgraded, NOT head_leader
+  expect(body.data.role).toBe('leader') // ← downgraded, NOT class_master
+  expect(body.data.isAdmin).not.toBe(true) // ← admin tag also not self-assignable
 })

@@ -23,24 +23,31 @@ router.get('/admin/users', requireTopAdmin, async (_req, res: Response): Promise
   res.json({ success: true, data: users.map(toUserDto) })
 })
 
-/** PUT /api/admin/users/:uid — Update user role / classId (TopAdmin only) */
+/** PUT /api/admin/users/:uid — Update user role / classId / isAdmin (TopAdmin only) */
 router.put('/admin/users/:uid', requireTopAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { uid } = req.params
-  const { role, classId } = req.body as { role?: UserRole; classId?: string }
+  const { role, classId, isAdmin } = req.body as {
+    role?: UserRole
+    classId?: string
+    isAdmin?: boolean
+  }
 
   const update: Partial<AppUser> = {}
   if (role !== undefined) update.role = role
   if (classId !== undefined) update.classId = classId
+  if (isAdmin !== undefined) update.isAdmin = isAdmin
 
   const db = getDB()
   await db.collection<AppUser>('users').updateOne({ _id: uid }, { $set: update })
   res.json({ success: true })
 })
 
-/** GET /api/admin/check-head-leader — Does a head_leader exist? */
-router.get('/admin/check-head-leader', async (_req, res: Response): Promise<void> => {
+/** GET /api/admin/check-top-admin — Does any top admin (class_master or isAdmin) exist? */
+router.get('/admin/check-top-admin', async (_req, res: Response): Promise<void> => {
   const db = getDB()
-  const found = await db.collection<AppUser>('users').findOne({ role: 'head_leader' })
+  const found = await db.collection<AppUser>('users').findOne({
+    $or: [{ role: 'class_master' }, { isAdmin: true }],
+  })
   res.json({ success: true, data: { exists: found !== null } })
 })
 
@@ -107,6 +114,7 @@ function toUserDto(u: AppUser & { _id?: string }) {
     photoURL: u.photoURL,
     role: u.role,
     classId: u.classId,
+    isAdmin: u.isAdmin === true,
   }
 }
 

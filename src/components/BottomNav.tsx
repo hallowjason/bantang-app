@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { isTopAdmin } from '../lib/auth/permissions'
 
 // ─── Tab 定義 ─────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ export default function BottomNav() {
   const { user } = useAuth()
   const { pathname } = useLocation()
 
-  const tabs = (user?.role === 'head_leader' || user?.role === 'class_master')
+  const tabs = isTopAdmin(user)
     ? [...TABS, ADMIN_TAB]
     : [...TABS]
 
