@@ -4,6 +4,7 @@ import { getDB } from '../db'
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
 import type { Member, ClassMember, Attendance, Class } from '../types'
 import { ensureAlive } from '../iccf/ensureAlive'
+import type { IccfSessionRecord } from '../iccf/sessionStore'
 import { addMember as iccfAddMember } from '../iccf/client'
 
 interface ClassMemberWithName extends ClassMember {
@@ -66,10 +67,30 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     return
   }
 
+  const db = getDB()
+
+  // Pre-check iccf session BEFORE inserting the member. Previously the member
+  // was created first, so if the session had expired the client's re-login retry
+  // flow would re-submit and create a duplicate. Bail out early without any DB write.
+  let aliveSession: IccfSessionRecord | null = null
+  if (iccfSessionId && iccfClassCode) {
+    const alive = await ensureAlive(iccfSessionId)
+    if (!alive.ok) {
+      res.json({
+        success: true,
+        data: {
+          id: null,
+          iccf: { status: 'session_expired', message: alive.message },
+        },
+      })
+      return
+    }
+    aliveSession = alive.session
+  }
+
   const memberId = new ObjectId().toHexString()
   const newMember: Member = { _id: memberId, ...memberData }
 
-  const db = getDB()
   await db.collection<Member>('members').insertOne(newMember)
 
   // Link to class
@@ -86,39 +107,30 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
   // iccf 補入（非同步，不阻斷建立流程）
   let iccfResult: { status: string; iccfMemberId?: string; message?: string } | null = null
 
-  if (iccfSessionId && iccfClassCode) {
-    const alive = await ensureAlive(iccfSessionId)
-    if (!alive.ok) {
-      iccfResult = { status: 'session_expired', message: alive.message }
+  if (aliveSession && iccfClassCode) {
+    try {
+      const r = await iccfAddMember(
+        aliveSession.cookieJar,
+        newMember.name,
+        newMember.regionUnit,
+        iccfClassCode,
+      )
+      iccfResult = r
+
+      const iccfUpdate: Partial<Member> = {
+        iccfStatus: r.status === 'synced' ? 'synced' : r.status as Member['iccfStatus'],
+        iccfSyncedAt: new Date().toISOString(),
+        iccfLastError: r.status !== 'synced' ? r.message : undefined,
+      }
+      if (r.iccfMemberId) iccfUpdate.iccfMemberId = r.iccfMemberId
+
+      await db.collection<Member>('members').updateOne({ _id: memberId }, { $set: iccfUpdate })
+    } catch (err) {
+      iccfResult = { status: 'error', message: (err as Error).message }
       await db.collection<Member>('members').updateOne(
         { _id: memberId },
-        { $set: { iccfStatus: 'error', iccfLastError: alive.message } },
+        { $set: { iccfStatus: 'error', iccfLastError: (err as Error).message } },
       )
-    } else {
-      try {
-        const r = await iccfAddMember(
-          alive.session.cookieJar,
-          newMember.name,
-          newMember.regionUnit,
-          iccfClassCode,
-        )
-        iccfResult = r
-
-        const iccfUpdate: Partial<Member> = {
-          iccfStatus: r.status === 'synced' ? 'synced' : r.status as Member['iccfStatus'],
-          iccfSyncedAt: new Date().toISOString(),
-          iccfLastError: r.status !== 'synced' ? r.message : undefined,
-        }
-        if (r.iccfMemberId) iccfUpdate.iccfMemberId = r.iccfMemberId
-
-        await db.collection<Member>('members').updateOne({ _id: memberId }, { $set: iccfUpdate })
-      } catch (err) {
-        iccfResult = { status: 'error', message: (err as Error).message }
-        await db.collection<Member>('members').updateOne(
-          { _id: memberId },
-          { $set: { iccfStatus: 'error', iccfLastError: (err as Error).message } },
-        )
-      }
     }
   }
 

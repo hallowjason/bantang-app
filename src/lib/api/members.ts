@@ -32,13 +32,13 @@ export async function addMember(
   classId: string,
   _userId: string,
   iccfOptions?: { sessionId: string; classCode: string },
-): Promise<{ id: string; iccf: IccfSyncResult | null }> {
+): Promise<{ id: string | null; iccf: IccfSyncResult | null }> {
   const body: Record<string, unknown> = { ...data, classId }
   if (iccfOptions) {
     body.iccfSessionId = iccfOptions.sessionId
     body.iccfClassCode = iccfOptions.classCode
   }
-  const result = await apiPost<{ id: string; iccf: IccfSyncResult | null }>('/api/members', body)
+  const result = await apiPost<{ id: string | null; iccf: IccfSyncResult | null }>('/api/members', body)
   return result
 }
 

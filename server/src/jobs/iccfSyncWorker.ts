@@ -18,6 +18,7 @@ export interface IccfSyncJob {
   topicName: string   // 課程名稱 for 設定課程 step
   sessionId: string
   presentMemberNames: string[]
+  leaveMemberNames: string[]
   status: SyncJobStatus
   result?: MarkAttendanceResult
   error?: string
@@ -50,6 +51,7 @@ export function createSyncJob(params: {
   topicName: string
   sessionId: string
   presentMemberNames: string[]
+  leaveMemberNames: string[]
 }): IccfSyncJob {
   // Race-guard: if another job for the same (classId, date) is still in flight,
   // return that job instead of dispatching a duplicate worker run.
@@ -111,6 +113,7 @@ async function processJob(jobId: string): Promise<void> {
       job.date,
       job.topicName,
       job.presentMemberNames,
+      job.leaveMemberNames,
     )
 
     job.result = result

@@ -86,13 +86,13 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     return
   }
 
-  // Fetch the present/leave members for this class+date
+  // Fetch present + leave separately so iccf gets O (出席) vs A (請假) correctly.
   const records = await db.collection<Attendance>('attendance')
     .find({ classId, date, status: { $in: ['present', 'leave'] } })
     .toArray()
 
   if (records.length === 0) {
-    res.json({ success: true, data: { jobId: null, message: '無出席班員，略過 iccf 同步' } })
+    res.json({ success: true, data: { jobId: null, message: '無出席/請假班員，略過 iccf 同步' } })
     return
   }
 
@@ -105,6 +105,11 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
 
   const nameMap = new Map(members.map(m => [m._id, m.name]))
   const presentMemberNames = records
+    .filter(r => r.status === 'present')
+    .map(r => nameMap.get(r.memberId))
+    .filter((n): n is string => !!n)
+  const leaveMemberNames = records
+    .filter(r => r.status === 'leave')
     .map(r => nameMap.get(r.memberId))
     .filter((n): n is string => !!n)
 
@@ -115,6 +120,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     topicName: trimmedTopic,
     sessionId,
     presentMemberNames,
+    leaveMemberNames,
   })
 
   res.json({ success: true, data: toJobDto(job) })

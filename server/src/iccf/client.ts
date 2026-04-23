@@ -319,7 +319,8 @@ export async function addMember(
  * @param iccfClassCode      - class_code (e.g. "B3000549"), needed to load course list
  * @param date               - YYYY-MM-DD
  * @param topicName          - course name to fill in 設定課程 (remark field)
- * @param presentMemberNames - names of members who are present
+ * @param presentMemberNames - names of members who are present (marked O)
+ * @param leaveMemberNames   - names of members on leave (marked A 請假)
  */
 export async function markAttendance(
   jar: CookieJar,
@@ -328,6 +329,7 @@ export async function markAttendance(
   date: string,
   topicName: string,
   presentMemberNames: string[],
+  leaveMemberNames: string[] = [],
 ): Promise<MarkAttendanceResult> {
   const http = makeHttp(jar)
 
@@ -359,7 +361,7 @@ export async function markAttendance(
         : '；iccf 回傳 0 筆班期，請確認此班在 iccf 已排課'
       return {
         marked: [],
-        notFound: presentMemberNames,
+        notFound: [...presentMemberNames, ...leaveMemberNames],
         error: `iccf 找不到日期 ${date} 的班期${suffix}`,
       }
     }
@@ -406,8 +408,9 @@ export async function markAttendance(
     const members: AttendanceMemberEntry[] = parseAttendanceMemberList(formHtml)
 
     const presentSet = new Set(presentMemberNames)
+    const leaveSet = new Set(leaveMemberNames)
     const marked: string[] = []
-    const notFound: string[] = [...presentMemberNames]
+    const notFound: string[] = [...presentMemberNames, ...leaveMemberNames]
 
     const $form = cheerio.load(formHtml)
     const rollFormAction =
@@ -427,6 +430,11 @@ export async function markAttendance(
     for (const member of members) {
       if (presentSet.has(member.name) && member.presentFieldName) {
         formFields[member.presentFieldName] = member.presentFieldValue ?? 'O'
+        marked.push(member.name)
+        const idx = notFound.indexOf(member.name)
+        if (idx !== -1) notFound.splice(idx, 1)
+      } else if (leaveSet.has(member.name) && member.leaveFieldName) {
+        formFields[member.leaveFieldName] = member.leaveFieldValue ?? 'A'
         marked.push(member.name)
         const idx = notFound.indexOf(member.name)
         if (idx !== -1) notFound.splice(idx, 1)
@@ -454,7 +462,7 @@ export async function markAttendance(
   } catch (e) {
     if (e instanceof IccfError) throw e
     const msg = `iccf 點名失敗: ${(e as Error).message}`
-    return { marked: [], notFound: presentMemberNames, error: msg }
+    return { marked: [], notFound: [...presentMemberNames, ...leaveMemberNames], error: msg }
   }
 }
 

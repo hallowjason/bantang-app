@@ -195,6 +195,8 @@ export interface AttendanceMemberEntry {
   name: string
   presentFieldName?: string
   presentFieldValue?: string
+  leaveFieldName?: string
+  leaveFieldValue?: string
 }
 
 /**
@@ -250,6 +252,8 @@ export function parseAttendanceMemberList(html: string): AttendanceMemberEntry[]
       name: value,
       presentFieldName: `present_o[${i}]`,
       presentFieldValue: 'O',
+      leaveFieldName: `present_a[${i}]`,
+      leaveFieldValue: 'A',
     })
   })
 
