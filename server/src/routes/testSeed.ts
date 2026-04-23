@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import { getDB } from '../db'
 import type { AppUser, UserRole, Class, Member, ClassMember, Session, Attendance, AttendanceStatus } from '../types'
+import { backfillIccfClassCode } from './iccfSession'
+import type { IccfClassEntry } from '../iccf/client'
 
 /**
  * Test-only seeding router. Registered on the main app ONLY when
@@ -218,6 +220,39 @@ router.post('/reset-session', async (req, res) => {
     db.collection<Attendance>('attendance').deleteMany({ classId, date }),
   ])
 
+  res.json({ success: true })
+})
+
+// ─── GET /api/_test/class/:classId ──────────────────────────────────────────
+router.get('/class/:classId', async (req, res) => {
+  const cls = await getDB().collection<Class>('classes').findOne({ _id: req.params.classId })
+  if (!cls) {
+    res.status(404).json({ success: false, error: 'not found' })
+    return
+  }
+  res.json({ success: true, data: cls })
+})
+
+// ─── POST /api/_test/iccf-backfill ──────────────────────────────────────────
+//
+// Body: { leaderUid, discovered: IccfClassEntry[] }
+// Directly drives backfillIccfClassCode with a caller-supplied "discovered"
+// list — the real iccf server is never contacted. Lets E2E tests exercise
+// the empty-fill, renewal, and no-op branches without mocking HTTP.
+router.post('/iccf-backfill', async (req, res) => {
+  const { leaderUid, discovered } = req.body ?? {}
+  if (typeof leaderUid !== 'string' || !leaderUid) {
+    res.status(400).json({ success: false, error: 'leaderUid required' })
+    return
+  }
+  if (!Array.isArray(discovered)) {
+    res.status(400).json({ success: false, error: 'discovered must be an array' })
+    return
+  }
+  const entries = (discovered as IccfClassEntry[]).filter(
+    (d): d is IccfClassEntry & { iccfClassCode: string } => !!d?.iccfClassCode,
+  )
+  await backfillIccfClassCode(leaderUid, entries)
   res.json({ success: true })
 })
 

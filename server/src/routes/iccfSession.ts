@@ -10,7 +10,8 @@ import {
 } from '../iccf/sessionStore'
 import { isIccfError } from '../iccf/errors'
 import { getDB } from '../db'
-import type { AppUser, Class } from '../types'
+import type { AppUser, Class, IccfClassCodeHistoryEntry } from '../types'
+import type { IccfClassEntry } from '../iccf/client'
 
 const router = Router()
 
@@ -42,30 +43,36 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
   try {
     const { cookieJar, profile, forceKicked } = await login(account.trim(), password)
 
-    // Discover classes from the 班期 menu; extract both sec_class and class_code (best-effort)
-    let classes: Awaited<ReturnType<typeof listClasses>> = []
+    // Discover classes from the 班期 menu; parser now returns BOTH active and
+    // ended rows with a status field (best-effort — errors leave list empty).
+    let discovered: Awaited<ReturnType<typeof listClasses>> = []
     try {
-      classes = await listClasses(cookieJar)
+      discovered = await listClasses(cookieJar)
     } catch {
       // Non-fatal
     }
 
     // Auto-populate iccfClassCode into the leader's class document so sync works
-    // on first login without manual admin setup.
-    const classesWithCode = classes.filter(
-      (c): c is typeof c & { iccfClassCode: string } => !!c.iccfClassCode,
+    // on first login without manual admin setup — and also detect annual
+    // renewal when the existing code maps to a discovered 已結班 entry.
+    const discoveredWithCode = discovered.filter(
+      (c): c is IccfClassEntry & { iccfClassCode: string } => !!c.iccfClassCode,
     )
-    if (classesWithCode.length > 0) {
-      await backfillIccfClassCode(leaderUid, classesWithCode).catch(() => {
+    if (discoveredWithCode.length > 0) {
+      await backfillIccfClassCode(leaderUid, discoveredWithCode).catch(() => {
         // Non-fatal: sync will still fail clearly if class doc is missing the code
       })
     }
+
+    // Session should expose only ACTIVE classes to the UI / sync worker so
+    // 已結班 entries don't surface as selectable targets.
+    const activeClasses = discovered.filter((c) => c.status === 'active')
 
     const record = await createSession({
       leaderId: leaderUid,
       iccfAccount: account.trim(),
       profile,
-      classes,
+      classes: activeClasses,
       cookieJar,
     })
 
@@ -160,63 +167,97 @@ router.post('/:sessionId/touch', async (req: AuthenticatedRequest, res: Response
 })
 
 /**
- * After a successful iccf login, write the discovered B-number(s) back to the
- * `classes` collection so sync works without manual admin setup.
+ * After a successful iccf login, write the discovered B-number back to the
+ * leader's class document.
  *
- * Write policy (to preserve the admin-only 編輯 iccfClassCode rule):
- *  - Fill the field only when it is absent/empty.
- *  - Never overwrite a non-empty iccfClassCode — once an admin (class_master
- *    or isAdmin) has set a B-number via /admin, only they can change it there.
+ * Write policy (preserves the admin-only 編輯 iccfClassCode rule AND enables
+ * annual renewal auto-swap):
  *
- * Strategy:
- *  - Look up the leader's classId from the users collection.
- *  - Single discovered class → write to the leader's app class if empty.
- *  - Multiple discovered classes → match each by existing iccfClassCode
- *    (no-op) or by class name (fill when empty).
+ *  1. Existing iccfClassCode is empty → fill with the sole active B-number
+ *     from iccf (if iccf returns multiple active, do nothing — ambiguous).
+ *
+ *  2. Existing iccfClassCode is NON-empty AND matches a discovered 已結班 /
+ *     聯班結業 entry AND iccf also reports exactly one active entry
+ *     (different B-number) → overwrite as annual renewal.
+ *
+ *     Safety: 已結班 / 聯班結業 labels are server-side controlled by iccf —
+ *     a malicious leader cannot forge them. The combined precondition
+ *     (current maps to an ended entry from the same iccf account that also
+ *     exposes an active replacement) prevents arbitrary overwrites.
+ *
+ *  3. Otherwise → no-op. Admin manual edits via /admin remain the only path.
+ *
+ * All automatic writes append an audit entry to `iccfClassCodeHistory`.
  */
-async function backfillIccfClassCode(
+export async function backfillIccfClassCode(
   leaderUid: string,
-  discovered: Array<{ classCode: string; iccfClassCode: string; className: string }>,
+  discovered: Array<IccfClassEntry & { iccfClassCode: string }>,
 ): Promise<void> {
   const db = getDB()
 
-  if (discovered.length === 1) {
-    const user = await db.collection<AppUser>('users').findOne({ _id: leaderUid })
-    if (!user?.classId) return
+  const user = await db.collection<AppUser>('users').findOne({ _id: leaderUid })
+  if (!user?.classId) return
 
-    const existing = await db.collection<Class>('classes').findOne({ _id: user.classId })
-    if (!existing) return
+  const existing = await db.collection<Class>('classes').findOne({ _id: user.classId })
+  if (!existing) return
 
-    // Admin-only edit: if iccfClassCode is already set, do not touch it.
-    if (existing.iccfClassCode && existing.iccfClassCode.trim() !== '') return
+  const current = (existing.iccfClassCode ?? '').trim()
+  const active = discovered.filter((d) => d.status === 'active')
+  const ended = discovered.filter(
+    (d) => d.status === 'ended' || d.status === 'joint_ended',
+  )
 
-    await db.collection<Class>('classes').updateOne(
-      { _id: user.classId },
-      { $set: { iccfClassCode: discovered[0].iccfClassCode } },
+  // Case 1: empty — fill only if exactly one active entry.
+  if (!current) {
+    if (active.length !== 1) return
+    await writeIccfClassCode(db, existing._id, '', active[0].iccfClassCode, leaderUid, 'backfill')
+    return
+  }
+
+  // Case 2: renewal — current maps to an ended entry AND exactly one active
+  // replacement exists with a different B-number.
+  const currentIsEnded = ended.some((e) => e.iccfClassCode === current)
+  if (
+    currentIsEnded &&
+    active.length === 1 &&
+    active[0].iccfClassCode !== current
+  ) {
+    await writeIccfClassCode(
+      db,
+      existing._id,
+      current,
+      active[0].iccfClassCode,
+      leaderUid,
+      'annual_renewal',
     )
     return
   }
 
-  // Multiple classes: update any class doc that has a matching iccfClassCode already
-  // set (keep it fresh) OR that has no iccfClassCode but name matches.
-  for (const entry of discovered) {
-    const existing = await db.collection<Class>('classes').findOne({
-      iccfClassCode: entry.iccfClassCode,
-    })
-    if (existing) continue // already correct, nothing to do
+  // Case 3: no-op.
+}
 
-    // Try name-based match as a best-effort fallback
-    const byName = await db.collection<Class>('classes').findOne({
-      name: entry.className,
-      iccfClassCode: { $exists: false },
-    })
-    if (byName) {
-      await db.collection<Class>('classes').updateOne(
-        { _id: byName._id },
-        { $set: { iccfClassCode: entry.iccfClassCode } },
-      )
-    }
+async function writeIccfClassCode(
+  db: ReturnType<typeof getDB>,
+  classId: string,
+  from: string,
+  to: string,
+  byLeaderUid: string,
+  reason: IccfClassCodeHistoryEntry['reason'],
+): Promise<void> {
+  const entry: IccfClassCodeHistoryEntry = {
+    from,
+    to,
+    at: new Date().toISOString(),
+    byLeaderUid,
+    reason,
   }
+  await db.collection<Class>('classes').updateOne(
+    { _id: classId },
+    {
+      $set: { iccfClassCode: to },
+      $push: { iccfClassCodeHistory: entry },
+    },
+  )
 }
 
 export default router

@@ -60,16 +60,30 @@ export function parseAddMemberResult(html: string): AddMemberResult {
   return { status: 'error', message: `無法解析 iccf 回應（${text.slice(0, 80)}）` }
 }
 
+export type IccfClassStatus = 'active' | 'ended' | 'joint_ended'
+
+export interface ParsedIccfClass {
+  classCode: string
+  className: string
+  iccfClassCode: string
+  status: IccfClassStatus
+}
+
 /**
  * Parse the 班務 page (select_class_service5.php) to extract class entries.
  * Returns entries with both the sec_code (e.g. "TWC") and B-number (e.g. "B3000549").
- * Only returns active classes (上課中), not closed ones (已結班).
+ *
+ * Each entry carries a status parsed from the iccf row badge:
+ *   - <b>上課中</b>   → 'active'
+ *   - <b>聯班結業</b> → 'joint_ended'
+ *   - <b>已結班</b>   → 'ended'
+ *
+ * Includes BOTH active and ended rows. Callers that only need current classes
+ * must filter by status === 'active'.
  */
-export function parseClassServiceList(
-  html: string,
-): Array<{ classCode: string; className: string; iccfClassCode: string }> {
+export function parseClassServiceList(html: string): ParsedIccfClass[] {
   const $ = cheerio.load(html)
-  const results: Array<{ classCode: string; className: string; iccfClassCode: string }> = []
+  const results: ParsedIccfClass[] = []
   const seen = new Set<string>()
 
   $('a[href]').each((_, el) => {
@@ -83,16 +97,22 @@ export function parseClassServiceList(
     if (seen.has(iccfClassCode)) return
     seen.add(iccfClassCode)
 
-    // Find the row to check if this class is still active (上課中)
     const $row = $(el).closest('tr')
-    const rowText = $row.text()
-    if (rowText.includes('已結班')) return
+    const rowHtml = $.html($row) ?? ''
 
-    // Class name from the name link (class_type contains the full name)
+    // Status badges are rendered as <b>上課中</b> / <b>已結班</b> / <b>聯班結業</b>.
+    // Match inside <b>…</b> so non-badge mentions (e.g. filter dropdown labels)
+    // don't leak in when the parser is given a fuller page snapshot.
+    let status: IccfClassStatus | null = null
+    if (/<b>\s*上課中\s*<\/b>/.test(rowHtml)) status = 'active'
+    else if (/<b>\s*聯班結業\s*<\/b>/.test(rowHtml)) status = 'joint_ended'
+    else if (/<b>\s*已結班\s*<\/b>/.test(rowHtml)) status = 'ended'
+    if (!status) return
+
     const nameLink = $row.find('a[href*="show_classmbr5"]').first()
     const className = nameLink.text().trim() || iccfClassCode
 
-    results.push({ classCode, iccfClassCode, className })
+    results.push({ classCode, iccfClassCode, className, status })
   })
 
   return results

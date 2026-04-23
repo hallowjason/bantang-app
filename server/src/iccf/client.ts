@@ -11,9 +11,10 @@ import {
   parseAttendanceMemberList,
   type AddMemberResult,
   type AttendanceMemberEntry,
+  type IccfClassStatus,
 } from './parser'
 
-export type { AddMemberResult }
+export type { AddMemberResult, IccfClassStatus }
 
 export interface MarkAttendanceResult {
   /** Members successfully marked present in iccf */
@@ -46,6 +47,12 @@ export interface IccfClassEntry {
   classCode: string       // class_sec_code, e.g. "TWC"
   className: string
   iccfClassCode?: string  // class_code, e.g. "B3000549" — needed for course list URL
+  /**
+   * Row status parsed from the 班務 page.
+   * Old session docs persisted before this field was added may lack it;
+   * treat `undefined` as 'active' for backward-compat.
+   */
+  status?: IccfClassStatus
 }
 
 /**

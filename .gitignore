@@ -13,3 +13,7 @@ server/backups/
 e2e/.runtime/
 playwright-report/
 test-results/
+
+# Private iccf reference dumps (may contain real B-numbers / 班期 metadata)
+班務列表.html
+iccf-*.html

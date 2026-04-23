@@ -21,6 +21,14 @@ export interface AppUser {
   isAdmin?: boolean  // 「管理員」標籤：可由主班或現任管理員指派
 }
 
+export interface IccfClassCodeHistoryEntry {
+  from: string
+  to: string
+  at: string   // ISO 8601
+  byLeaderUid: string
+  reason: 'backfill' | 'annual_renewal'
+}
+
 export interface Class {
   _id: string
   name: string
@@ -28,6 +36,8 @@ export interface Class {
   sheetTabName?: string
   sheetClassLabel?: string
   iccfClassCode?: string
+  /** Append-only audit log of automatic iccfClassCode writes (backfill + renewal). */
+  iccfClassCodeHistory?: IccfClassCodeHistoryEntry[]
 }
 
 export interface EtiquetteItem {
