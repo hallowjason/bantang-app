@@ -187,4 +187,90 @@ test.describe('Admin — /admin CRUD flows', () => {
     await expect(page.getByText('目前無有效 iccf session')).toBeVisible({ timeout: 8000 })
   })
 
+  test('管理員 toggle：領班可被 class_master 授予 / 移除 isAdmin', async ({ page }) => {
+    const stamp = Date.now()
+    const uid = `e2e-promote-${stamp}`
+    const targetName = `E2E 待升級領班 ${stamp}`
+    await seedUserDirect({
+      uid,
+      email: `${uid}@e2e.test`,
+      name: targetName,
+      role: 'leader',
+    })
+
+    await goToAdmin(page)
+    await page.getByRole('button', { name: /^人員$/ }).click()
+
+    const card = page.locator('div.card-lovable').filter({ hasText: targetName })
+
+    // 未授予前不應看到「管理員」badge；按鈕顯示「設為管理員」。
+    await expect(card.getByText('管理員', { exact: true })).toHaveCount(0)
+
+    // 點「設為管理員」→ PUT /api/admin/users/:uid with { isAdmin: true }
+    const [promoteRes] = await Promise.all([
+      page.waitForResponse(
+        r =>
+          r.url().includes(`/api/admin/users/${uid}`) &&
+          r.request().method() === 'PUT',
+      ),
+      card.getByRole('button', { name: '設為管理員' }).click(),
+    ])
+    expect(promoteRes.ok()).toBe(true)
+
+    // 後端已寫入 isAdmin: true
+    const afterPromote = await (await fetch(`${API_URL}/api/_test/user/${uid}`)).json()
+    expect(afterPromote.success).toBe(true)
+    expect(afterPromote.data.isAdmin).toBe(true)
+
+    // UI 反映：badge 出現、按鈕變為「移除管理員」
+    await expect(card.getByText('管理員', { exact: true })).toBeVisible()
+    await expect(card.getByRole('button', { name: '移除管理員' })).toBeVisible()
+
+    // 再點一次 → 移除 isAdmin
+    const [demoteRes] = await Promise.all([
+      page.waitForResponse(
+        r =>
+          r.url().includes(`/api/admin/users/${uid}`) &&
+          r.request().method() === 'PUT',
+      ),
+      card.getByRole('button', { name: '移除管理員' }).click(),
+    ])
+    expect(demoteRes.ok()).toBe(true)
+
+    const afterDemote = await (await fetch(`${API_URL}/api/_test/user/${uid}`)).json()
+    expect(afterDemote.data.isAdmin).not.toBe(true)
+    await expect(card.getByRole('button', { name: '設為管理員' })).toBeVisible()
+  })
+
+  test('管理員 toggle：自己不會看到 toggle 按鈕（避免自鎖）', async ({ page }) => {
+    // class_master 本人在列表中只能看到自己的卡片但不應有「設為管理員」/「移除管理員」
+    await goToAdmin(page)
+    await page.getByRole('button', { name: /^人員$/ }).click()
+
+    const selfCard = page
+      .locator('div.card-lovable')
+      .filter({ hasText: TEST_USERS.classMaster.name })
+
+    await expect(selfCard).toBeVisible()
+    await expect(selfCard.getByRole('button', { name: /管理員/ })).toHaveCount(0)
+  })
+
+  test('管理員 toggle：非領班角色（小班長 / 班員 / 主班）不顯示 toggle', async ({ page }) => {
+    const stamp = Date.now()
+    const junior = `E2E 小班長 notog ${stamp}`
+    await seedUserDirect({
+      uid: `e2e-notog-junior-${stamp}`,
+      email: `notog-junior-${stamp}@e2e.test`,
+      name: junior,
+      role: 'junior_leader',
+    })
+
+    await goToAdmin(page)
+    await page.getByRole('button', { name: /^人員$/ }).click()
+
+    const card = page.locator('div.card-lovable').filter({ hasText: junior })
+    await expect(card).toBeVisible()
+    await expect(card.getByRole('button', { name: /管理員/ })).toHaveCount(0)
+  })
+
 })

@@ -209,7 +209,17 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
 
 // ─── 人員管理 Tab ─────────────────────────────────────────
 
-function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Class[]; onRefresh: () => void }) {
+function UsersTab({
+  users,
+  classes,
+  currentUserUid,
+  onRefresh,
+}: {
+  users: AppUser[]
+  classes: Class[]
+  currentUserUid: string | undefined
+  onRefresh: () => void
+}) {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [saved, setSaved]       = useState<string | null>(null)
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all')
@@ -218,10 +228,13 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
     ? users
     : users.filter(u => u.role === roleFilter)
 
-  const handleUpdate = async (userId: string, field: 'role' | 'classId', value: string) => {
+  const handleUpdate = async (
+    userId: string,
+    patch: { role?: UserRole; classId?: string; isAdmin?: boolean },
+  ) => {
     setSavingId(userId)
     try {
-      await updateUserProfile(userId, { [field]: value })
+      await updateUserProfile(userId, patch)
       setSaved(userId)
       setTimeout(() => setSaved(null), 1500)
       onRefresh()
@@ -286,7 +299,7 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-muted">角色</label>
                 <select value={u.role} disabled={savingId === u.uid}
-                  onChange={e => handleUpdate(u.uid, 'role', e.target.value)}
+                  onChange={e => handleUpdate(u.uid, { role: e.target.value as UserRole })}
                   className="input-lovable text-sm px-2.5 py-2">
                   <option value="class_master">主班</option>
                   <option value="leader">領班</option>
@@ -299,7 +312,7 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
                 <select
                   value={u.classId}
                   disabled={savingId === u.uid || u.role === 'member'}
-                  onChange={e => handleUpdate(u.uid, 'classId', e.target.value)}
+                  onChange={e => handleUpdate(u.uid, { classId: e.target.value })}
                   className="input-lovable text-sm px-2.5 py-2 disabled:opacity-50">
                   <option value="">— 未分班 —</option>
                   {classes.map(cls => (
@@ -309,15 +322,33 @@ function UsersTab({ users, classes, onRefresh }: { users: AppUser[]; classes: Cl
               </div>
             </div>
 
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap items-center">
               <span className={`badge-lovable text-xs font-medium ${roleBadgeColor(u.role)}`}>
                 {ROLE_LABEL[u.role]}
               </span>
+              {u.isAdmin && (
+                <span className="badge-lovable text-xs font-medium text-amber-700">
+                  <span className="badge-dot bg-amber-500" />
+                  管理員
+                </span>
+              )}
               {u.role !== 'member' && (
                 <span className={`badge-lovable text-xs font-medium ${u.classId ? 'text-green-600' : 'text-red-400'}`}>
                   <span className={`badge-dot ${u.classId ? 'bg-green-500' : 'bg-red-400'}`} />
                   {u.classId ? (classes.find(c => c.id === u.classId)?.name ?? u.classId) : '未分班'}
                 </span>
+              )}
+              {/* 管理員 toggle — 只對領班開放，且不允許對自己操作（避免自鎖） */}
+              {u.role === 'leader' && u.uid !== currentUserUid && (
+                <button
+                  onClick={() => handleUpdate(u.uid, { isAdmin: !u.isAdmin })}
+                  disabled={savingId === u.uid}
+                  className={u.isAdmin
+                    ? 'btn-ghost text-xs text-red-600 px-3 py-1 rounded-full ml-auto disabled:opacity-60'
+                    : 'btn-ghost text-xs text-amber-700 px-3 py-1 rounded-full ml-auto disabled:opacity-60'}
+                >
+                  {u.isAdmin ? '移除管理員' : '設為管理員'}
+                </button>
               )}
             </div>
           </div>
@@ -514,7 +545,7 @@ export default function Admin() {
         ) : tab === 'classes' ? (
           <ClassesTab classes={classes} onRefresh={loadAll} />
         ) : tab === 'users' ? (
-          <UsersTab users={users} classes={classes} onRefresh={loadAll} />
+          <UsersTab users={users} classes={classes} currentUserUid={user?.uid} onRefresh={loadAll} />
         ) : (
           <IccfTab />
         )}
