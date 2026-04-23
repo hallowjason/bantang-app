@@ -6,6 +6,7 @@ server/serviceAccountKey.json
 server/uploads/
 server/dist/
 server/node_modules/
+server/backups/
 *.local
 
 # Playwright / E2E artifacts

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import admin from 'firebase-admin'
 import { getDB } from '../db'
 import type { AppUser, UserRole } from '../types'
+import { isTopAdmin, isPortalAdmin } from '../lib/permissions'
 
 // Initialize Firebase Admin once
 let adminInitialized = false
@@ -64,7 +65,7 @@ export async function requireAuth(
     if (!userDoc) {
       // First login: create user with default role.
       // intentRole is self-declared by the client; only low-privilege roles
-      // are accepted. Elevated roles (head_leader, class_master) must be
+      // are accepted. Elevated privileges (class_master / isAdmin) must be
       // assigned by an existing admin via a separate endpoint — never on
       // first login — to prevent privilege escalation.
       const SELF_ASSIGNABLE_ROLES: readonly UserRole[] = ['leader', 'junior_leader', 'member']
@@ -114,28 +115,26 @@ export async function optionalAuth(
   return requireAuth(req, res, next)
 }
 
-/** Middleware to check if user is TopAdmin (head_leader or class_master) */
+/** Middleware to check if user is TopAdmin (class_master or isAdmin === true) */
 export function requireTopAdmin(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
 ): void {
-  const role = req.user?.role
-  if (role !== 'head_leader' && role !== 'class_master') {
-    res.status(403).json({ success: false, error: 'Requires head_leader or class_master role' })
+  if (!isTopAdmin(req.user)) {
+    res.status(403).json({ success: false, error: 'Requires class_master or admin privileges' })
     return
   }
   next()
 }
 
-/** Middleware to check if user is PortalAdmin (head_leader, class_master, or junior_leader) */
+/** Middleware to check if user is PortalAdmin (TopAdmin or junior_leader) */
 export function requirePortalAdmin(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
 ): void {
-  const role = req.user?.role
-  if (role !== 'head_leader' && role !== 'class_master' && role !== 'junior_leader') {
+  if (!isPortalAdmin(req.user)) {
     res.status(403).json({ success: false, error: 'Requires portal admin role' })
     return
   }

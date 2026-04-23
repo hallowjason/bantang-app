@@ -1,9 +1,8 @@
 // ─── 使用者角色 ───────────────────────────────────────────
 
 export type UserRole =
-  | 'class_master'   // 主班：最高管理者（與 head_leader 權限相同）
-  | 'head_leader'    // 大領班：最高管理者（與 class_master 權限相同）
-  | 'leader'         // 領班：基本領班
+  | 'class_master'   // 主班：最高管理者
+  | 'leader'         // 領班：基本領班（可加 isAdmin 標籤變成管理員）
   | 'junior_leader'  // 小班長：可管理班員入口後台
   | 'member'         // 班員：一般成員
 
@@ -24,6 +23,7 @@ export interface AppUser {
   photoURL: string | null
   role: UserRole
   classId: string
+  isAdmin?: boolean  // 「管理員」標籤：可由主班或現任管理員指派
 }
 
 // ─── /classes/{classId} ──────────────────────────────────

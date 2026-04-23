@@ -2,7 +2,6 @@
 
 export type UserRole =
   | 'class_master'
-  | 'head_leader'
   | 'leader'
   | 'junior_leader'
   | 'member'
@@ -19,6 +18,7 @@ export interface AppUser {
   photoURL: string | null
   role: UserRole
   classId: string
+  isAdmin?: boolean  // 「管理員」標籤：可由主班或現任管理員指派
 }
 
 export interface Class {
