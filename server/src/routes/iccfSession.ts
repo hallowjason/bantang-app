@@ -163,12 +163,16 @@ router.post('/:sessionId/touch', async (req: AuthenticatedRequest, res: Response
  * After a successful iccf login, write the discovered B-number(s) back to the
  * `classes` collection so sync works without manual admin setup.
  *
+ * Write policy (to preserve the admin-only 編輯 iccfClassCode rule):
+ *  - Fill the field only when it is absent/empty.
+ *  - Never overwrite a non-empty iccfClassCode — once an admin (class_master
+ *    or isAdmin) has set a B-number via /admin, only they can change it there.
+ *
  * Strategy:
  *  - Look up the leader's classId from the users collection.
- *  - If exactly one iccf class was discovered → write its iccfClassCode to the
- *    leader's app class (only when not already set or when the value changed).
- *  - If multiple iccf classes were discovered → match each by iccfClassCode
- *    against existing class documents and update any that are missing the code.
+ *  - Single discovered class → write to the leader's app class if empty.
+ *  - Multiple discovered classes → match each by existing iccfClassCode
+ *    (no-op) or by class name (fill when empty).
  */
 async function backfillIccfClassCode(
   leaderUid: string,
@@ -177,14 +181,14 @@ async function backfillIccfClassCode(
   const db = getDB()
 
   if (discovered.length === 1) {
-    // Single class: write to the leader's own app class
     const user = await db.collection<AppUser>('users').findOne({ _id: leaderUid })
     if (!user?.classId) return
 
     const existing = await db.collection<Class>('classes').findOne({ _id: user.classId })
     if (!existing) return
 
-    if (existing.iccfClassCode === discovered[0].iccfClassCode) return
+    // Admin-only edit: if iccfClassCode is already set, do not touch it.
+    if (existing.iccfClassCode && existing.iccfClassCode.trim() !== '') return
 
     await db.collection<Class>('classes').updateOne(
       { _id: user.classId },

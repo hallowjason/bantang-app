@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 import admin from 'firebase-admin'
+import { mintE2EToken } from '../helpers/auth'
+import { TEST_USERS } from '../fixtures/test-users'
+import { seedClass, uniqueClassId } from '../helpers/seed'
 
 /**
  * Regression test for the intentRole privilege-escalation fix.
@@ -43,4 +46,52 @@ test('intentRole=class_master on first login is downgraded to leader', async ({ 
   expect(body.success).toBe(true)
   expect(body.data.role).toBe('leader') // ← downgraded, NOT class_master
   expect(body.data.isAdmin).not.toBe(true) // ← admin tag also not self-assignable
+})
+
+/**
+ * 「調整班別代號」admin-only rule：iccfClassCode (B-number) 只能由主班 / 管理員
+ * 透過 /admin → PUT /api/admin/classes/:id 編輯。領班 / 小班長 即便有合法 token
+ * 也會在 requireTopAdmin 被擋。
+ */
+test('PUT /api/admin/classes/:id — leader without isAdmin is rejected', async () => {
+  ensureAdmin()
+
+  const classId = uniqueClassId('e2e-iccfcode')
+  await seedClass(classId, 'E2E iccf 班代測試')
+
+  // Leader 無 isAdmin，用合法 custom token 呼叫 PUT /api/admin/classes/:id
+  const leaderToken = await mintE2EToken({
+    ...TEST_USERS.leader,
+    uid: `e2e-leader-iccfcode-${Date.now()}`,
+    email: `leader-iccfcode-${Date.now()}@e2e.test`,
+  })
+  // Exchange custom token for an ID token via Auth Emulator REST endpoint.
+  const idTokenRes = await fetch(
+    `http://${EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=e2e-fake-api-key`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: leaderToken, returnSecureToken: true }),
+    },
+  )
+  const idTokenBody = await idTokenRes.json()
+  const idToken = idTokenBody.idToken as string
+  expect(idToken).toBeTruthy()
+
+  const putRes = await fetch(`${API_URL}/api/admin/classes/${classId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ iccfClassCode: 'B9999999' }),
+  })
+  expect(putRes.status).toBe(403)
+
+  // DB 未被改動：用同一個 token 呼叫讀取 class 端點確認 iccfClassCode 仍為空
+  const getRes = await fetch(`${API_URL}/api/classes/${classId}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  })
+  const getBody = await getRes.json()
+  expect(getBody.data?.iccfClassCode ?? '').toBe('')
 })
