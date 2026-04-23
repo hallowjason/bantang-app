@@ -6,10 +6,15 @@ import {
   getMemberAttendance,
   getMemberAttendanceCount,
   getMemberActiveClasses,
+  getClassInfo,
+  repairIccfSync,
 } from '../lib/api/members'
 import { getEtiquetteItems } from '../lib/api/settings'
+import { iccfGetCurrentSessions, type IccfLoginResult, type IccfSessionInfo } from '../lib/api/iccfSession'
+import { getIccfCopy, isRetryableStatus } from '../lib/iccfCopy'
+import IccfLoginModal from '../components/IccfLoginModal'
 import MemberForm from '../components/MemberForm'
-import type { Member, Attendance, EtiquetteItem, ClassMemberWithName, EtiquetteStatus } from '../types'
+import type { Member, Attendance, EtiquetteItem, ClassMemberWithName, EtiquetteStatus, IccfSyncStatus } from '../types'
 
 // ─── 工具函式 ─────────────────────────────────────────────
 
@@ -54,28 +59,88 @@ export default function MemberDetail() {
   const [totalCount, setTotalCount] = useState(0)
   const [activeClasses, setActiveClasses] = useState<ClassMemberWithName[]>([])
   const [etiquetteItems, setEtiquetteItems] = useState<EtiquetteItem[]>([])
+  const [iccfClassCode, setIccfClassCode] = useState<string | undefined>()
   const [loading, setLoading]       = useState(true)
   const [showEdit, setShowEdit]     = useState(false)
+
+  // iccf repair state
+  const [iccfSession, setIccfSession] = useState<IccfSessionInfo | null>(null)
+  const [showIccfLogin, setShowIccfLogin] = useState(false)
+  const [repairing, setRepairing] = useState(false)
+  const [pendingRepair, setPendingRepair] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return
     setLoading(true)
-    const [m, att, count, classes, items] = await Promise.all([
+    const [m, att, count, classes, items, classInfo] = await Promise.all([
       getMemberById(id),
       getMemberAttendance(id),
       getMemberAttendanceCount(id),
       getMemberActiveClasses(id),
       getEtiquetteItems(),
+      user?.classId ? getClassInfo(user.classId) : Promise.resolve(null),
     ])
     setMember(m)
     setAttendance(att)
     setTotalCount(count)
     setActiveClasses(classes)
     setEtiquetteItems(items)
+    setIccfClassCode(classInfo?.iccfClassCode || undefined)
     setLoading(false)
-  }, [id])
+  }, [id, user?.classId])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (!iccfClassCode) return
+    iccfGetCurrentSessions()
+      .then(sessions => { if (sessions.length > 0) setIccfSession(sessions[0]) })
+      .catch(() => { /* non-critical */ })
+  }, [iccfClassCode])
+
+  const doRepair = async (memberId: string, sessionId: string) => {
+    if (!iccfClassCode) return
+    setRepairing(true)
+    try {
+      const result = await repairIccfSync(memberId, sessionId, iccfClassCode)
+      if (result.status === 'session_expired') {
+        setIccfSession(null)
+        setPendingRepair(true)
+        setShowIccfLogin(true)
+        return
+      }
+      await load()
+    } finally {
+      setRepairing(false)
+    }
+  }
+
+  const handleRepair = () => {
+    if (!member || !iccfClassCode) return
+    if (!iccfSession) {
+      setPendingRepair(true)
+      setShowIccfLogin(true)
+      return
+    }
+    doRepair(member.id, iccfSession.sessionId)
+  }
+
+  const handleIccfLoginSuccess = async (result: IccfLoginResult) => {
+    setShowIccfLogin(false)
+    const sessionInfo: IccfSessionInfo = {
+      sessionId: result.sessionId,
+      iccfAccount: '',
+      profile: result.profile,
+      classes: result.classes,
+      lastUsedAt: new Date().toISOString(),
+      expiresAt: result.expiresAt,
+    }
+    setIccfSession(sessionInfo)
+    if (pendingRepair && member) {
+      setPendingRepair(false)
+      await doRepair(member.id, result.sessionId)
+    }
+  }
 
   if (loading) {
     return (
@@ -101,6 +166,9 @@ export default function MemberDetail() {
   const daysSinceLast    = lastPresentDate ? daysSince(lastPresentDate) : null
   const bdayDays         = member.birthday ? daysUntilBirthday(member.birthday) : null
   const birthdaySoon     = bdayDays !== null && bdayDays <= 30
+
+  const iccfCopy         = getIccfCopy(member.iccfStatus as IccfSyncStatus | undefined)
+  const iccfRetryable    = !!iccfClassCode && isRetryableStatus(member.iccfStatus as IccfSyncStatus | undefined)
 
   return (
     <div className="min-h-screen bg-cream">
@@ -157,6 +225,63 @@ export default function MemberDetail() {
             small
           />
         </div>
+
+        {/* iccf 狀態 */}
+        {iccfCopy && (
+          <section>
+            <SectionTitle>iccf 狀態</SectionTitle>
+            <div className="card-lovable flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className={`badge-lovable text-xs ${
+                  iccfCopy.tone === 'green' ? 'text-green-700' :
+                  iccfCopy.tone === 'red'   ? 'text-red-500' :
+                  iccfCopy.tone === 'blue'  ? 'text-blue-600' :
+                  iccfCopy.tone === 'amber' ? 'text-amber-700' :
+                                              'text-ink'
+                }`}>
+                  <span className={`badge-dot ${
+                    iccfCopy.tone === 'green' ? 'bg-green-500' :
+                    iccfCopy.tone === 'red'   ? 'bg-red-400' :
+                    iccfCopy.tone === 'blue'  ? 'bg-blue-500' :
+                    iccfCopy.tone === 'amber' ? 'bg-amber-500' :
+                                                'bg-ink'
+                  }`} />
+                  {iccfCopy.badge}
+                </span>
+                {member.iccfMemberId && (
+                  <span className="text-xs text-muted">iccf ID: {member.iccfMemberId}</span>
+                )}
+              </div>
+
+              <p className="text-sm text-ink">{iccfCopy.summary}</p>
+
+              {member.iccfLastError && (
+                <div className="rounded-xl bg-red-50 border border-red-100 px-3 py-2">
+                  <p className="text-xs font-medium text-red-700 mb-1">錯誤訊息</p>
+                  <p className="text-xs text-red-600 whitespace-pre-wrap break-words">
+                    {member.iccfLastError}
+                  </p>
+                </div>
+              )}
+
+              {member.iccfSyncedAt && (
+                <p className="text-xs text-muted">
+                  上次同步：{new Date(member.iccfSyncedAt).toLocaleString('zh-TW')}
+                </p>
+              )}
+
+              {iccfRetryable && (
+                <button
+                  onClick={handleRepair}
+                  disabled={repairing}
+                  className="btn-ghost w-full text-sm py-2.5 mt-1"
+                >
+                  {repairing ? '同步中…' : '重試 iccf 補入'}
+                </button>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* 所屬班級 */}
         {activeClasses.length > 0 && (
@@ -233,6 +358,13 @@ export default function MemberDetail() {
           member={member}
           onClose={() => setShowEdit(false)}
           onSaved={() => { setShowEdit(false); load() }}
+        />
+      )}
+
+      {showIccfLogin && (
+        <IccfLoginModal
+          onSuccess={handleIccfLoginSuccess}
+          onCancel={() => { setShowIccfLogin(false); setPendingRepair(false) }}
         />
       )}
     </div>
