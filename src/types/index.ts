@@ -126,6 +126,7 @@ export interface Session {
   isFinalized: boolean  // 點名是否已完成送出
   finalizedAt?: string  // ISO timestamp
   finalizedBy?: string  // userId
+  iccfSyncedAt?: string | null  // ISO timestamp of last successful iccf sync
 }
 
 // ─── /weekly_tasks/{classId}/weeks/{weekId} ──────────────

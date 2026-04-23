@@ -99,6 +99,7 @@ function toDto(s: Session) {
     isFinalized: s.isFinalized,
     finalizedAt: s.finalizedAt,
     finalizedBy: s.finalizedBy,
+    iccfSyncedAt: s.iccfSyncedAt ?? null,
   }
 }
 

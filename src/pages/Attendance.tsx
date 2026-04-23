@@ -376,6 +376,17 @@ export default function Attendance() {
     await doFinalize(pendingSessionId ?? '', topicName)
   }
 
+  // Retry iccf sync for already-finalized sessions where sync was never successful
+  const handleRetryIccfSync = async () => {
+    const topicName = await fetchDefaultTopic()
+    if (iccfSession) {
+      await triggerIccfSync(iccfSession.sessionId, topicName)
+    } else {
+      setPendingIccfSync({ topicName })
+      setShowIccfLogin(true)
+    }
+  }
+
   // Proactive iccf logout (clears server-side cookie jar too)
   const handleIccfLogout = async () => {
     if (!iccfSession?.sessionId) return
@@ -650,6 +661,14 @@ export default function Attendance() {
                 >
                   產生出席報表
                 </Link>
+                {iccfClassCode && !session.iccfSyncedAt && !iccfSyncJob?.jobId && (
+                  <button
+                    onClick={handleRetryIccfSync}
+                    className="btn-ghost w-full py-3.5"
+                  >
+                    重新送出 iccf
+                  </button>
+                )}
                 <button
                   onClick={handleReopen}
                   className="btn-ghost w-full py-3.5"
