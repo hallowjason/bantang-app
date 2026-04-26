@@ -310,7 +310,24 @@ export async function addMember(
     // Parse preliminary result
     const preliminary = parseAddMemberResult(searchHtml)
 
-    // If already synced, duplicate, not_found, forbidden, error — return immediately
+    // Diagnostic only when parser cannot classify the page — log structural
+    // metadata (NOT the body) so we can extend the parser next time iccf
+    // returns something unfamiliar. Search responses contain member names,
+    // so we do not log raw HTML.
+    if (preliminary.status === 'error') {
+      console.error('[iccf.addMember] search response unrecognized', {
+        url: actionUrl,
+        htmlLength: searchHtml.length,
+        hasStyleInBody: /<body[^>]*>[\s\S]*?<style/i.test(searchHtml),
+        hasAlert: /alert\s*\(/.test(searchHtml),
+        hasMbrIdLink: /mbr_id=\d+/.test(searchHtml),
+      })
+    }
+
+    // If already synced, duplicate, not_found, forbidden, error — return immediately.
+    // `error` is intentionally NOT routed to confirm-link auto-follow: the
+    // raw `add_classmbr…mbr_id=` selector is too broad to safely auto-trigger
+    // a 補入 mutation when the page structure is unknown.
     if (preliminary.status !== 'name_mismatch') {
       return preliminary
     }
@@ -346,7 +363,15 @@ export async function addMember(
     const confirmRes = await http.get(confirmUrl)
     const confirmHtml = decodeBig5(confirmRes.data as Buffer)
 
-    return parseAddMemberResult(confirmHtml)
+    const confirmResult = parseAddMemberResult(confirmHtml)
+    if (confirmResult.status === 'error') {
+      console.error('[iccf.addMember] confirm response unrecognized', {
+        url: confirmUrl,
+        htmlLength: confirmHtml.length,
+        hasAlert: /alert\s*\(/.test(confirmHtml),
+      })
+    }
+    return confirmResult
   } catch (e) {
     if (e instanceof IccfError) throw e
     throw new IccfError('network_error', `iccf 補入失敗: ${(e as Error).message}`, e)

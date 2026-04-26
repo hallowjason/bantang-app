@@ -1,4 +1,9 @@
-import { parseClassServiceList, parseClassMemberList, normalizeRegionKey } from '../src/iccf/parser'
+import {
+  parseAddMemberResult,
+  parseClassServiceList,
+  parseClassMemberList,
+  normalizeRegionKey,
+} from '../src/iccf/parser'
 
 /**
  * Synthetic HTML that mirrors the real iccf 班務 page markup. The real HTML
@@ -167,3 +172,96 @@ for (const [args, want] of cases) {
 }
 if (!normOk) process.exit(1)
 console.log('✓ normalizeRegionKey ok')
+
+// ─── parseAddMemberResult smoke ──────────────────────────────────────
+//
+// Reproduces the bug we shipped 2026-04-26 where iccf returned a page with
+// inline `<style>` rules inside <body>. cheerio's .text() pulled the CSS
+// (A:link {color: blue}…) into the parser, drowning the real message and
+// surfacing a useless error to leaders. The parser must now strip
+// style/script before keyword matching, and must extract alert() text.
+
+interface AddCase {
+  name: string
+  html: string
+  wantStatus: 'synced' | 'duplicate' | 'not_found' | 'name_mismatch' | 'forbidden' | 'error'
+  /** Optional substring the user-facing message must / must not contain. */
+  messageMustNotInclude?: string
+  messageMustInclude?: string
+}
+
+const addCases: AddCase[] = [
+  {
+    name: 'inline <style> + 補入成功 alert → synced',
+    html: `<html><body>
+      <style>A:link {color: blue} A:visited {color: blue } A:active {color: red} A:hover {color: red}</style>
+      <script>alert('補入成功');location.href='show_classmbr5.php?mbr_id=12345';</script>
+    </body></html>`,
+    wantStatus: 'synced',
+    messageMustNotInclude: 'A:link',
+  },
+  {
+    name: 'style-only page (the actual bug) → error, but message is NOT CSS',
+    html: `<html><body>
+      <style>A:link {color: blue} A:visited {color: blue } A:active {color: red} A:hover {color: red}</style>
+    </body></html>`,
+    wantStatus: 'error',
+    messageMustNotInclude: 'A:link',
+  },
+  {
+    name: 'alert with 查無 → not_found (was: error)',
+    html: `<html><body>
+      <style>A:link {color: blue}</style>
+      <script>alert('查無此人，請確認姓名');history.back();</script>
+    </body></html>`,
+    wantStatus: 'not_found',
+  },
+  {
+    name: '搜尋結果列表 → name_mismatch',
+    html: `<html><body>
+      <style>A:link {color: blue}</style>
+      <p>搜尋結果</p>
+      <a href="add_classmbr5.php?mbr_id=1">張三</a>
+      <a href="add_classmbr5.php?mbr_id=2">張三</a>
+    </body></html>`,
+    wantStatus: 'name_mismatch',
+  },
+  {
+    name: 'plain success page (no alert, no style) → synced (regression)',
+    html: `<html><body>新增成功 mbr_id=99887</body></html>`,
+    wantStatus: 'synced',
+  },
+  {
+    name: '無權限 page → forbidden (regression)',
+    html: `<html><body>無權限存取此頁</body></html>`,
+    wantStatus: 'forbidden',
+  },
+]
+
+let addOk = true
+for (const c of addCases) {
+  const got = parseAddMemberResult(c.html)
+  if (got.status !== c.wantStatus) {
+    console.error(`[${c.name}] status got=${got.status} want=${c.wantStatus}`)
+    addOk = false
+    continue
+  }
+  if (c.messageMustNotInclude && got.message?.includes(c.messageMustNotInclude)) {
+    console.error(`[${c.name}] message leaked forbidden substring "${c.messageMustNotInclude}": ${got.message}`)
+    addOk = false
+  }
+  if (c.messageMustInclude && !got.message?.includes(c.messageMustInclude)) {
+    console.error(`[${c.name}] message missing required substring "${c.messageMustInclude}": ${got.message}`)
+    addOk = false
+  }
+}
+
+// Verify the synced case actually extracted mbr_id from the alert+redirect HTML
+const syncedCase = parseAddMemberResult(addCases[0].html)
+if (syncedCase.status === 'synced' && syncedCase.iccfMemberId !== '12345') {
+  console.error(`expected iccfMemberId=12345 from alert+redirect page, got ${syncedCase.iccfMemberId}`)
+  addOk = false
+}
+
+if (!addOk) process.exit(1)
+console.log('✓ parseAddMemberResult ok')

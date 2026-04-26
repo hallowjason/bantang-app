@@ -16,10 +16,41 @@ export interface AddMemberResult {
 
 /**
  * Parse the result page after a 補入 attempt.
+ *
+ * iccf is an old PHP system that often returns alert+redirect pages, and
+ * inlines `<style>` blocks inside `<body>`. cheerio's `.text()` includes
+ * `<style>` and `<script>` content, so we strip those first — otherwise the
+ * keyword-matching is competing with CSS rules and the error fallthrough
+ * message ends up looking like `A:link {color: blue}...`.
+ *
+ * We also harvest any `alert('…')` payloads from the raw HTML, since iccf
+ * often shows status messages that way. Alert text takes priority over
+ * body text when both are present.
  */
 export function parseAddMemberResult(html: string): AddMemberResult {
+  // Strip style/script/noscript from the cheerio DOM only; the raw `html`
+  // string is preserved so we can run alert-regex extraction below. Removing
+  // these tags from the DOM prevents `$('body').text()` from pulling CSS
+  // content (e.g. `A:link {color: blue}`) into our keyword matcher.
   const $ = cheerio.load(html)
-  const text = $('body').text().replace(/\s+/g, ' ').trim()
+  $('style, script, noscript').remove()
+  const bodyText = $('body').text().replace(/\s+/g, ' ').trim()
+
+  // Pull alert messages out of the raw HTML string. Known limitations:
+  //  - Backslash-escaped quotes inside the alert payload (e.g. `alert('a\'b')`)
+  //    are not captured; the regex truncates at the first inner quote.
+  //  - Alerts split across newlines are not captured ([^'"] also rejects \n).
+  // Both cases degrade gracefully: the parser falls through to the `error`
+  // branch with an empty/short snippet — never to a wrong status.
+  const alertMatches = [...html.matchAll(/alert\s*\(\s*['"]([^'"]{1,500})['"]\s*\)/g)]
+  const alertText = alertMatches.map((m) => m[1]).join(' ').trim()
+
+  // Keyword priority order (intentional — DO NOT reorder without re-checking
+  // every iccf template): synced → duplicate → not_found → name_mismatch →
+  // forbidden. `synced` runs first because a successful 補入 page is the
+  // strongest signal; the duplicate keywords (`已加入`, `已在班`) are weaker
+  // and could appear as flavor text on confirmation pages.
+  const text = `${alertText} ${bodyText}`.trim()
 
   if (
     text.includes('新增成功') ||
@@ -40,11 +71,17 @@ export function parseAddMemberResult(html: string): AddMemberResult {
     return { status: 'duplicate', message: '班員已在此班' }
   }
 
+  // Keep these keywords specific to "no records found" contexts. Bare
+  // `無資料` was rejected as too broad — it appears in unrelated form
+  // validation messages (e.g. "輸入無資料格式錯誤").
   if (
     text.includes('查無資料') ||
     text.includes('找不到') ||
     text.includes('無符合') ||
-    text.includes('查無此人')
+    text.includes('查無此人') ||
+    text.includes('無此資料') ||
+    text.includes('沒有資料') ||
+    text.includes('未找到')
   ) {
     return { status: 'not_found', message: 'iccf 查無此姓名' }
   }
@@ -57,7 +94,16 @@ export function parseAddMemberResult(html: string): AddMemberResult {
     return { status: 'forbidden', message: '您沒有操作此班的權限' }
   }
 
-  return { status: 'error', message: `無法解析 iccf 回應（${text.slice(0, 80)}）` }
+  // Truly unrecognized — surface the cleanest snippet we have.
+  // Prefer alert text (usually the actionable message), then visible body
+  // text. If both are empty (page is style-only / blank), say so explicitly.
+  const snippet = (alertText || bodyText).slice(0, 80)
+  return {
+    status: 'error',
+    message: snippet
+      ? `無法解析 iccf 回應（${snippet}）`
+      : '無法解析 iccf 回應（空白頁面）',
+  }
 }
 
 export type IccfClassStatus = 'active' | 'ended' | 'joint_ended'
