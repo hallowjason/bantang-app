@@ -109,10 +109,17 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
 
   if (aliveSession && iccfClassCode) {
     try {
+      // iccfClassCode is the B-number ("B3000549"); iccfAddMember's form URL
+      // needs the sec_code ("TWC"). Look it up from the live session entries.
+      const classEntry = aliveSession.classes.find(c => c.iccfClassCode === iccfClassCode)
+      const secCode = classEntry?.classCode ?? iccfClassCode
+
       const r = await iccfAddMember(
         aliveSession.cookieJar,
         newMember.name,
         newMember.regionUnit,
+        newMember.regionNumber,
+        secCode,
         iccfClassCode,
       )
       iccfResult = r
@@ -183,10 +190,17 @@ router.post('/:id/iccf-sync', async (req: AuthenticatedRequest, res: Response): 
   }
 
   try {
+    // iccfClassCode is the B-number ("B3000549"); iccfAddMember's form URL
+    // needs the sec_code ("TWC"). Look it up from the live session entries.
+    const classEntry = alive.session.classes.find(c => c.iccfClassCode === iccfClassCode)
+    const secCode = classEntry?.classCode ?? iccfClassCode
+
     const r = await iccfAddMember(
       alive.session.cookieJar,
       member.name,
       member.regionUnit,
+      member.regionNumber,
+      secCode,
       iccfClassCode,
     )
 

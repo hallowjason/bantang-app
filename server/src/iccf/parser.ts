@@ -279,3 +279,113 @@ export function parseAttendanceMemberList(html: string): AttendanceMemberEntry[]
 
   return results
 }
+
+// ─── Class member list (show_classmbr5.php) ───────────────
+
+export interface ClassMemberEntry {
+  /** 求道名 — primary registration name on iccf */
+  name: string
+  /** 本名 — legal name; sometimes differs from 求道名 */
+  alternateName: string
+  /** 區別 cell text, e.g. "精明001" */
+  regionCell: string
+  /** iccf class membership id (no_mem param), e.g. "30273" */
+  iccfMemberId: string
+}
+
+/**
+ * Parse the class member list page (show_classmbr5.php).
+ *
+ * Used by the 補入 pre-check: before submitting a 補入 request, the caller
+ * fetches this page and looks for an existing (name, region) match — if found,
+ * we return `duplicate` immediately without going through the search/add form.
+ *
+ * Header row contains 「求道名 / 本名 / 區別」 among other columns. Returns
+ * an empty array if the table or required headers are missing — callers
+ * should treat empty as "page did not look like a class member list" and
+ * fail-fast rather than assume the class is empty.
+ */
+export function parseClassMemberList(html: string): ClassMemberEntry[] {
+  const $ = cheerio.load(html)
+
+  let targetEl: ReturnType<typeof $>[number] | null = null
+  $('table').each((_, t) => {
+    const headerText = $(t).find('tr').first().text()
+    if (headerText.includes('求道名') && headerText.includes('區別')) {
+      targetEl = t
+      return false
+    }
+  })
+  if (!targetEl) return []
+
+  const rows = $(targetEl).find('tr')
+  if (rows.length < 2) return []
+
+  // Map header → index so the parser stays robust if iccf reorders columns.
+  let nameIdx = -1
+  let altIdx = -1
+  let regionIdx = -1
+  $(rows[0]).find('td,th').each((i, c) => {
+    const t = $(c).text().replace(/\s+/g, '').trim()
+    if (t === '求道名') nameIdx = i
+    else if (t === '本名') altIdx = i
+    else if (t === '區別') regionIdx = i
+  })
+  if (nameIdx < 0 || regionIdx < 0) return []
+
+  const results: ClassMemberEntry[] = []
+  const required = Math.max(nameIdx, altIdx, regionIdx) + 1
+
+  rows.slice(1).each((_, row) => {
+    const cells = $(row).find('td')
+    if (cells.length < required) return
+
+    const name = $(cells[nameIdx]).text().replace(/\s+/g, '').trim()
+    const alternateName = altIdx >= 0
+      ? $(cells[altIdx]).text().replace(/\s+/g, '').trim()
+      : name
+    const regionCell = $(cells[regionIdx]).text().replace(/\s+/g, '').trim()
+    if (!name || !regionCell) return
+
+    // no_mem is form-encoded with '+' as spaces (e.g. "+++30273" → "30273").
+    const editHref = $(row).find('a[href*="edit_classmbr5"]').first().attr('href') ?? ''
+    const m = editHref.match(/no_mem=([^&]+)/)
+    const iccfMemberId = m
+      ? decodeURIComponent(m[1].replace(/\+/g, ' ')).replace(/\s+/g, '').trim()
+      : ''
+
+    results.push({ name, alternateName, regionCell, iccfMemberId })
+  })
+
+  return results
+}
+
+/**
+ * Normalize a region key for comparison between app input and iccf display.
+ *
+ * App side: regionUnit ("賢德") + regionNumber ("19" or "019").
+ * iccf side: 區別 cell text ("精明001").
+ *
+ * Rules:
+ * - strip all whitespace
+ * - strip trailing "區" if present
+ * - zero-pad numeric tail to 3 digits
+ *
+ * Examples:
+ *   normalizeRegionKey("賢德", "19")    → "賢德019"
+ *   normalizeRegionKey("賢德", "019")   → "賢德019"
+ *   normalizeRegionKey("精明 001 區")   → "精明001"
+ *   normalizeRegionKey("精明001")       → "精明001"
+ */
+export function normalizeRegionKey(unit: string, number?: string): string {
+  if (number !== undefined) {
+    const u = unit.replace(/\s+/g, '').replace(/區$/, '').trim()
+    const n = number.replace(/[^\d]/g, '')
+    return n ? u + n.padStart(3, '0') : u
+  }
+  const cleaned = unit.replace(/\s+/g, '').replace(/區$/, '').trim()
+  const tail = cleaned.match(/(\d+)$/)
+  if (!tail) return cleaned
+  const prefix = cleaned.slice(0, cleaned.length - tail[1].length)
+  return prefix + tail[1].padStart(3, '0')
+}

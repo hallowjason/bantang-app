@@ -7,8 +7,10 @@ import { IccfError } from './errors'
 import {
   parseAddMemberResult,
   parseClassServiceList,
+  parseClassMemberList,
   parseCourseSessionList,
   parseAttendanceMemberList,
+  normalizeRegionKey,
   type AddMemberResult,
   type AttendanceMemberEntry,
   type IccfClassStatus,
@@ -207,28 +209,66 @@ export async function listClasses(jar: CookieJar): Promise<IccfClassEntry[]> {
 /**
  * Add a member to an iccf class via the 補入 flow.
  *
- * The iccf add-member form is a two-step process:
+ * Steps:
+ *  0. Pre-check: fetch show_classmbr5.php and look for an existing
+ *     (name, region) match. If found → return `duplicate` immediately
+ *     without mutating iccf state.
  *  1. POST search form with name + area → get result list
- *  2. If exactly one match, POST confirmation → get success page
+ *  2. If exactly one match, follow confirmation link → get success page
  *
- * We attempt to auto-select when exactly one result is returned.
- * If multiple or zero results, we map to the appropriate IccfSyncStatus.
- *
- * @param jar       - active session cookie jar
- * @param name      - member's full name (UTF-8, encoded to Big5 internally)
- * @param area      - member's region/area string (e.g. "精明019 區")
- * @param classCode - sec_class code (e.g. "TWT019")
+ * @param jar           - active session cookie jar
+ * @param name          - member's name as typed in the app (matched against
+ *                        iccf 求道名 / 本名)
+ * @param regionUnit    - "賢德" / "精明" — combined with regionNumber for matching
+ * @param regionNumber  - "19" / "019" — zero-padded to 3 digits internally
+ * @param classCode     - sec_class code (e.g. "TWT")
+ * @param iccfClassCode - B-number (e.g. "B7000170") — needed for show_classmbr5 URL
  */
 export async function addMember(
   jar: CookieJar,
   name: string,
-  area: string,
+  regionUnit: string,
+  regionNumber: string,
   classCode: string,
+  iccfClassCode: string,
 ): Promise<AddMemberResult> {
   const http = makeHttp(jar)
 
   try {
-    // Step 1: Load the add-member search form for this class
+    // ── Step 0: Pre-check class member list for existing (name, region) ──
+    const listUrl =
+      `/classmbr/show_classmbr5.php` +
+      `?class_code=${encodeURIComponent(iccfClassCode)}` +
+      `&class_sec_code=${encodeBig5URIComponent(classCode)}&first=T`
+    const listRes = await http.get(listUrl)
+    const listHtml = decodeBig5(listRes.data as Buffer)
+    const existing = parseClassMemberList(listHtml)
+
+    // Empty result + no recognizable header = page didn't render correctly
+    // (session expired mid-fetch, permission issue, etc). Fail-fast.
+    if (existing.length === 0 && !/求道名[\s\S]{0,200}區別/.test(listHtml)) {
+      return {
+        status: 'error',
+        message: 'iccf 班員列表頁無法解析（可能登入過期或網路錯誤），請重試',
+      }
+    }
+
+    const targetName = name.trim()
+    const targetRegion = normalizeRegionKey(regionUnit, regionNumber)
+    const match = existing.find(e =>
+      (e.name === targetName || e.alternateName === targetName) &&
+      normalizeRegionKey(e.regionCell) === targetRegion,
+    )
+    if (match) {
+      return {
+        status: 'duplicate',
+        iccfMemberId: match.iccfMemberId || undefined,
+        message: '班員已在此班',
+      }
+    }
+
+    // ── Step 1: Load the add-member search form for this class ──
+    const area = regionUnit
     const formUrl =
       `/classmbr/add_classmbr_first5.php` +
       `?label=add&class_code_head=&class_close=1&first=T&sec_class=${encodeBig5URIComponent(classCode)}`

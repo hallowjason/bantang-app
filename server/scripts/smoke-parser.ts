@@ -1,4 +1,4 @@
-import { parseClassServiceList } from '../src/iccf/parser'
+import { parseClassServiceList, parseClassMemberList, normalizeRegionKey } from '../src/iccf/parser'
 
 /**
  * Synthetic HTML that mirrors the real iccf 班務 page markup. The real HTML
@@ -81,4 +81,89 @@ if (parsed.length !== expected.length) {
 if (!ok) {
   process.exit(1)
 }
-console.log('\n✓ parser ok')
+console.log('\n✓ parseClassServiceList ok')
+
+// ─── parseClassMemberList smoke ───────────────────────────────────────
+
+const memberListHtml = `
+<table>
+  <tr>
+    <td>取消</td><td>改</td><td>性別</td><td>座號</td><td>求道名</td><td>本名</td>
+    <td>現況</td><td>類別</td><td>生日</td><td>求道日</td>
+    <td>區別</td><td>成全者</td><td>備註</td><td>清口</td><td>住宿</td>
+    <td>道歷</td><td>結業否</td><td>歷史</td><td>審核</td>
+  </tr>
+  <tr>
+    <td><input type=checkbox></td>
+    <td><a href="/classmbr/edit_classmbr5.php?class_code=B7000170&no_mem=+++30273&class_sec_code=TWT&tmbrtype=A">改</a></td>
+    <td>乾</td><td>1</td><td>詹淳璽</td><td>詹淳璽</td>
+    <td><a>在學</a></td><td>道親</td><td>70/08/09</td><td>91/07/26/戍</td>
+    <td>精明001</td><td>陳愫美</td><td></td><td>是</td><td></td><td>信德</td><td>未結業</td><td>歷史</td><td>審核</td>
+  </tr>
+  <tr>
+    <td><input type=checkbox></td>
+    <td><a href="/classmbr/edit_classmbr5.php?class_code=B7000170&no_mem=+++51358&class_sec_code=TWT&tmbrtype=B">改</a></td>
+    <td>坤</td><td>2</td><td>蔡玥惠</td><td>蔡月惠</td>
+    <td><a>在學</a></td><td>道親</td><td>64/04/21</td><td>96/11/20/午</td>
+    <td>精明024</td><td>蘇致和</td><td></td><td>是</td><td></td><td>信德</td><td>未結業</td><td>歷史</td><td>審核</td>
+  </tr>
+</table>
+`
+
+const members = parseClassMemberList(memberListHtml)
+const expectedMembers = [
+  { name: '詹淳璽', alternateName: '詹淳璽', regionCell: '精明001', iccfMemberId: '30273' },
+  { name: '蔡玥惠', alternateName: '蔡月惠', regionCell: '精明024', iccfMemberId: '51358' },
+]
+let memberOk = true
+for (const exp of expectedMembers) {
+  const got = members.find(m => m.iccfMemberId === exp.iccfMemberId)
+  if (!got) {
+    console.error(`MEMBER MISSING: ${exp.iccfMemberId}`)
+    memberOk = false
+    continue
+  }
+  for (const k of Object.keys(exp) as (keyof typeof exp)[]) {
+    if (got[k] !== exp[k]) {
+      console.error(`MEMBER MISMATCH ${exp.iccfMemberId}.${k}: got ${got[k]}, want ${exp[k]}`)
+      memberOk = false
+    }
+  }
+}
+if (members.length !== expectedMembers.length) {
+  console.error(`MEMBER LENGTH: got ${members.length}, want ${expectedMembers.length}`)
+  memberOk = false
+}
+
+// Empty / unrecognized table → []
+if (parseClassMemberList('<html><body>無權限</body></html>').length !== 0) {
+  console.error('expected empty array for non-member-list page')
+  memberOk = false
+}
+
+if (!memberOk) process.exit(1)
+console.log('✓ parseClassMemberList ok')
+
+// ─── normalizeRegionKey smoke ─────────────────────────────────────────
+
+const cases: Array<[unknown[], string]> = [
+  [['賢德', '19'], '賢德019'],
+  [['賢德', '019'], '賢德019'],
+  [['賢德', ' 019 '], '賢德019'],
+  [['賢德', ''], '賢德'],
+  [['賢德 ', '1'], '賢德001'],
+  [['精明 001 區'], '精明001'],
+  [['精明001'], '精明001'],
+  [['精明001區'], '精明001'],
+  [['精明024'], '精明024'],
+]
+let normOk = true
+for (const [args, want] of cases) {
+  const got = (normalizeRegionKey as (...a: unknown[]) => string)(...args)
+  if (got !== want) {
+    console.error(`normalizeRegionKey(${JSON.stringify(args)}) = ${got}, want ${want}`)
+    normOk = false
+  }
+}
+if (!normOk) process.exit(1)
+console.log('✓ normalizeRegionKey ok')

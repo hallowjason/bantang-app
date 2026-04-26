@@ -45,12 +45,9 @@ const COPY: Record<IccfSyncStatus, IccfStatusCopy> = {
       `請協助確認正確姓名或提供更多資訊，感恩慈悲。`,
   },
   duplicate: {
-    badge: '同名同區',
-    tone: 'amber',
-    summary: '同區有多位同名，需人工確認',
-    suggestedReply: (name) =>
-      `老師慈悲，貴區有兩位同名的「${name}」，` +
-      `請問其他的資訊（求道日、成全者），感恩慈悲。`,
+    badge: '已在此班',
+    tone: 'green',
+    summary: 'iccf 已有此班員，無需重複補入',
   },
   forbidden: {
     badge: '權限限制',
@@ -74,10 +71,10 @@ export function getIccfCopy(status: IccfSyncStatus | undefined): IccfStatusCopy 
   return COPY[status] ?? null
 }
 
-/** 表示此狀態是領班可以按「重試」的（排除已同步 / 處理中）。 */
+/** 表示此狀態是領班可以按「重試」的（排除已同步 / 處理中 / 已在此班）。 */
 export function isRetryableStatus(status: IccfSyncStatus | undefined): boolean {
   if (!status) return false
-  return status !== 'synced' && status !== 'pending'
+  return status !== 'synced' && status !== 'pending' && status !== 'duplicate'
 }
 
 /** 表示此狀態必須請領班先重登 iccf 才能處理。 */
