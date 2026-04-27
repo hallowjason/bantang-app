@@ -435,7 +435,8 @@ const thrdMultiHtml = `
 
 const multi = parseAddMemberSearchResult(thrdMultiHtml)
 if (multi.status !== 'candidates' || multi.candidates.length !== 2) {
-  console.error('[thrd5 multi] expected 2 candidates, got', multi.status, (multi as any).candidates?.length)
+  const got = multi.status === 'candidates' ? multi.candidates.length : '(none)'
+  console.error('[thrd5 multi] expected 2 candidates, got', multi.status, got)
   searchOk = false
 }
 
