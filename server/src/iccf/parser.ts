@@ -113,6 +113,19 @@ export interface ParsedIccfClass {
   className: string
   iccfClassCode: string
   status: IccfClassStatus
+  /**
+   * Relative href of the 補入 entry link (`../classmbr/add_classmbr_sec5.php?...`).
+   * Carries the *real* iccf params required to land on the 補入 form, which
+   * cannot be reconstructed from classCode + iccfClassCode alone:
+   *   - name_create (leader id, e.g. "    9184" — 4-space-padded)
+   *   - tiov_geo_close (geo marker, e.g. "Fn2B7")
+   *   - short_name (Big5 percent-encoded class short name)
+   *   - classmbr_sec, label=add
+   * Without this href the app cannot drive the real 4-step 補入 flow
+   * (sec5 → thrd5 → four5). Older sessions persisted before this field was
+   * added will lack it; treat `undefined` as "force re-login to refresh".
+   */
+  addMemberHref?: string
 }
 
 /**
@@ -158,7 +171,22 @@ export function parseClassServiceList(html: string): ParsedIccfClass[] {
     const nameLink = $row.find('a[href*="show_classmbr5"]').first()
     const className = nameLink.text().trim() || iccfClassCode
 
-    results.push({ classCode, iccfClassCode, className, status })
+    // The 補入 button on this row carries the full set of params we need to
+    // POST to add_classmbr_thrd5.php later. Strip leftover `select=…&input=…`
+    // pairs (carry-over from a 方式一 search) — they may contain raw CJK that
+    // would be sent as UTF-8 by axios, which iccf (Big5) misinterprets.
+    const addRaw = $row.find('a[href*="add_classmbr_sec5"]').first().attr('href')
+    let addMemberHref: string | undefined
+    if (addRaw) {
+      addMemberHref = addRaw
+        .replace(/[?&]select=[^&]*/gi, (m) => (m[0] === '?' ? '?' : ''))
+        .replace(/[?&]input=[^&]*/gi, (m) => (m[0] === '?' ? '?' : ''))
+        .replace(/\?&/, '?')
+        .replace(/&&+/g, '&')
+        .replace(/[?&]$/, '')
+    }
+
+    results.push({ classCode, iccfClassCode, className, status, addMemberHref })
   })
 
   return results
@@ -434,4 +462,132 @@ export function normalizeRegionKey(unit: string, number?: string): string {
   if (!tail) return cleaned
   const prefix = cleaned.slice(0, cleaned.length - tail[1].length)
   return prefix + tail[1].padStart(3, '0')
+}
+
+// ─── Add-member search result (add_classmbr_thrd5.php) ───────────────
+//
+// The thrd5 page is the third step of the iccf 補入 wizard. It either:
+//   (a) renders a "中查無 [ <name> ] 資料" message when the search matched
+//       no rows in 道親資料庫 → not_found
+//   (b) renders a result table inside <form action="add_classmbr_four5.php">
+//       with one <tr> per match, each carrying a checkbox `name=join[i]` and
+//       a parallel block of hidden inputs `name[i]`, `name_org[i]`,
+//       `section_name[i]`, `no[i]`, `no_mem[i]`, … indexed by row → candidates
+//
+// Anything else (login redirect, structural change) is `unknown`.
+
+export interface AddMemberCandidate {
+  /** Row index in the `[i]` suffix space (`name[0]`, `join[0]`, …). */
+  idx: number
+  /** 求道名 — primary name on iccf. Compared against the app's `name`. */
+  name: string
+  /** 本名 — fallback name to compare against. */
+  nameOrg: string
+  /** 區別 cell, e.g. "精明019". Compared against the app's regionUnit+number. */
+  sectionName: string
+  /** 區別代碼 (e.g. "TWT019"). Kept for diagnostics. */
+  sectionCode: string
+  /** All hidden inputs indexed by `[i]` for this row, raw key → value. */
+  rowHidden: Record<string, string>
+}
+
+export type AddMemberSearchResult =
+  | { status: 'not_found'; message: string }
+  | {
+      status: 'candidates'
+      /** Form-level hidden inputs (everything NOT indexed by `[i]`). */
+      formHidden: Record<string, string>
+      /** Form action target — almost always `add_classmbr_four5.php`. */
+      formAction: string
+      candidates: AddMemberCandidate[]
+    }
+  | { status: 'unknown'; message: string }
+
+/**
+ * Parse the 報班 第3步 result page returned by add_classmbr_thrd5.php.
+ *
+ * Distinguishing fingerprints (verified against real fixtures from the
+ * 寶光崇正 iccf instance, 2026-04):
+ *   - not_found: contains `中查無 [` + `]` + `資料` AND `共0 筆`
+ *   - candidates: contains `<form … action=…add_classmbr_four5.php …>`
+ *     AND at least one `<input … name=join[N] …>` checkbox
+ */
+export function parseAddMemberSearchResult(html: string): AddMemberSearchResult {
+  const $ = cheerio.load(html)
+
+  // Pre-strip noise so .text() doesn't pull <style>/<script> contents.
+  $('style, script, noscript').remove()
+  const bodyText = $('body').text().replace(/\s+/g, ' ').trim()
+
+  // (a) Explicit "查無" page — fixture: "[ 道親資料庫 ] 中查無 [ 邱軒 ] 資料"
+  if (/中查無\s*\[/.test(bodyText) && bodyText.includes('資料')) {
+    return { status: 'not_found', message: 'iccf 道親資料庫查無此姓名' }
+  }
+  if (/共\s*0\s*筆/.test(bodyText) && !/join\[\d+\]/.test(html)) {
+    // 0-result page without any candidate checkboxes.
+    return { status: 'not_found', message: 'iccf 道親資料庫查無此姓名' }
+  }
+
+  // (b) Candidate list — find the form whose action targets
+  // add_classmbr_four5.php. cheerio handles unquoted attributes.
+  const $form = $('form').filter((_, el) => {
+    const action = $(el).attr('action') ?? ''
+    return /add_classmbr_four5/.test(action)
+  }).first()
+
+  if ($form.length === 0) {
+    return {
+      status: 'unknown',
+      message: `iccf 補入回應結構未知（${bodyText.slice(0, 80)}）`,
+    }
+  }
+
+  const formAction = $form.attr('action') ?? ''
+  const formHidden: Record<string, string> = {}
+  const indexed = new Map<number, Record<string, string>>()
+
+  // Walk every hidden input under the form. Indexed names look like
+  // `name[3]`, `no_mem[12]`, etc.; bare names go into formHidden.
+  $form.find('input').each((_, el) => {
+    const type = ($(el).attr('type') ?? '').toLowerCase()
+    if (type !== 'hidden') return
+    const fieldName = $(el).attr('name')?.trim()
+    if (!fieldName) return
+    const value = $(el).attr('value') ?? ''
+
+    const m = fieldName.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\[(\d+)\]$/)
+    if (m) {
+      const baseName = m[1]
+      const idx = parseInt(m[2], 10)
+      const bucket = indexed.get(idx) ?? {}
+      bucket[baseName] = value
+      indexed.set(idx, bucket)
+    } else {
+      formHidden[fieldName] = value
+    }
+  })
+
+  // Build candidates from indices that have at least a `name` field.
+  const candidates: AddMemberCandidate[] = []
+  for (const [idx, fields] of [...indexed.entries()].sort((a, b) => a[0] - b[0])) {
+    const name = (fields.name ?? '').trim()
+    if (!name) continue
+    candidates.push({
+      idx,
+      name,
+      nameOrg: (fields.name_org ?? '').trim(),
+      sectionName: (fields.section_name ?? '').trim(),
+      sectionCode: (fields.section_code ?? '').trim(),
+      rowHidden: fields,
+    })
+  }
+
+  if (candidates.length === 0) {
+    // Form exists but no candidates — treat as not_found rather than unknown,
+    // since iccf occasionally renders empty tables instead of the explicit
+    // "中查無" page.
+    return { status: 'not_found', message: 'iccf 道親資料庫查無此姓名' }
+  }
+
+  return { status: 'candidates', formHidden, formAction, candidates }
 }

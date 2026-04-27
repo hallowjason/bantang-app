@@ -110,7 +110,8 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
   if (aliveSession && iccfClassCode) {
     try {
       // iccfClassCode is the B-number ("B3000549"); iccfAddMember's form URL
-      // needs the sec_code ("TWC"). Look it up from the live session entries.
+      // needs the sec_code ("TWC") and addMemberHref. Look both up from the
+      // live session entries.
       const classEntry = aliveSession.classes.find(c => c.iccfClassCode === iccfClassCode)
       const secCode = classEntry?.classCode ?? iccfClassCode
 
@@ -121,6 +122,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
         newMember.regionNumber,
         secCode,
         iccfClassCode,
+        classEntry?.addMemberHref,
       )
       iccfResult = r
 
@@ -191,7 +193,8 @@ router.post('/:id/iccf-sync', async (req: AuthenticatedRequest, res: Response): 
 
   try {
     // iccfClassCode is the B-number ("B3000549"); iccfAddMember's form URL
-    // needs the sec_code ("TWC"). Look it up from the live session entries.
+    // needs the sec_code ("TWC") and addMemberHref. Look both up from the
+    // live session entries.
     const classEntry = alive.session.classes.find(c => c.iccfClassCode === iccfClassCode)
     const secCode = classEntry?.classCode ?? iccfClassCode
 
@@ -202,6 +205,7 @@ router.post('/:id/iccf-sync', async (req: AuthenticatedRequest, res: Response): 
       member.regionNumber,
       secCode,
       iccfClassCode,
+      classEntry?.addMemberHref,
     )
 
     const iccfUpdate: Partial<Member> = {

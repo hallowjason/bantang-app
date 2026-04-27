@@ -1,5 +1,6 @@
 import {
   parseAddMemberResult,
+  parseAddMemberSearchResult,
   parseClassServiceList,
   parseClassMemberList,
   normalizeRegionKey,
@@ -12,6 +13,12 @@ import {
  *   - A <a href="show_classmbr5.php?…">NAME</a> link (class name)
  *   - A status badge cell with <b>上課中</b> / <b>已結班</b> / <b>聯班結業</b>
  */
+// Active classes additionally have a 補入 button → addMemberHref.
+// Real iccf renders the link with leading `../classmbr/` (relative to
+// /class/select_class_service5.php) and Big5 percent-encoded `short_name`,
+// plus carry-over `select=道親&input=TWT019` from a previous 方式一 search
+// — which our parser MUST strip (raw CJK in URL would be sent as UTF-8 by
+// axios and mis-parsed by iccf).
 const html = `
 <table>
   <tr>
@@ -20,6 +27,9 @@ const html = `
       <a href="show_classmbr5.php?class_code=B7000170&class_sec_code=TWT&class_close=2">2026光明禮行班</a>
     </td>
     <td><font color=blue><b>上課中</b></font></td>
+    <td>
+      <a href="../classmbr/add_classmbr_sec5.php?label=add&classmbr_sec=&tiov_geo_close=Fn2B7&name_create=++++9184&class_code=B7000170&class_sec_code=TWT&short_name=%A5_%B3%A1%BA%EB%A9%FA%A4%D1%BCz%ABH%BCw%C1%BF%AD%FB%B2%C419%B4%C1&select=道親&input=TWT019">補入</a>
+    </td>
   </tr>
   <tr>
     <td>
@@ -62,10 +72,10 @@ console.log('\nBy status:', byStatus)
 
 // Assertions
 const expected = [
-  { iccfClassCode: 'B7000170', status: 'active' },
-  { iccfClassCode: 'B3000490', status: 'ended' },
-  { iccfClassCode: 'B2000347', status: 'joint_ended' },
-  { iccfClassCode: 'B4000299', status: 'ended' },
+  { iccfClassCode: 'B7000170', status: 'active', hasAdd: true },
+  { iccfClassCode: 'B3000490', status: 'ended', hasAdd: false },
+  { iccfClassCode: 'B2000347', status: 'joint_ended', hasAdd: false },
+  { iccfClassCode: 'B4000299', status: 'ended', hasAdd: false },
 ] as const
 
 let ok = true
@@ -74,8 +84,14 @@ for (const exp of expected) {
   if (!got) {
     console.error(`MISSING ${exp.iccfClassCode}`)
     ok = false
-  } else if (got.status !== exp.status) {
+    continue
+  }
+  if (got.status !== exp.status) {
     console.error(`STATUS MISMATCH ${exp.iccfClassCode}: got ${got.status}, want ${exp.status}`)
+    ok = false
+  }
+  if (exp.hasAdd !== Boolean(got.addMemberHref)) {
+    console.error(`addMemberHref presence MISMATCH ${exp.iccfClassCode}: got ${got.addMemberHref}, want ${exp.hasAdd}`)
     ok = false
   }
 }
@@ -83,6 +99,37 @@ if (parsed.length !== expected.length) {
   console.error(`LENGTH MISMATCH: got ${parsed.length}, want ${expected.length}`)
   ok = false
 }
+
+// addMemberHref hygiene: must NOT contain raw CJK chars (which would be
+// sent as UTF-8 by axios and mis-parsed by iccf, the original 4th attempt
+// failure mode that prompted the rewrite).
+const active = parsed.find((p) => p.iccfClassCode === 'B7000170')
+if (!active?.addMemberHref) {
+  console.error('B7000170 addMemberHref missing entirely')
+  ok = false
+} else {
+  if (/[一-鿿]/.test(active.addMemberHref)) {
+    console.error('addMemberHref leaks raw CJK (strip select/input failed):', active.addMemberHref)
+    ok = false
+  }
+  if (!active.addMemberHref.startsWith('../classmbr/add_classmbr_sec5.php')) {
+    console.error('addMemberHref path unexpected:', active.addMemberHref)
+    ok = false
+  }
+  if (!active.addMemberHref.includes('class_code=B7000170')) {
+    console.error('addMemberHref missing class_code:', active.addMemberHref)
+    ok = false
+  }
+  if (!active.addMemberHref.includes('name_create=')) {
+    console.error('addMemberHref missing name_create:', active.addMemberHref)
+    ok = false
+  }
+  if (active.addMemberHref.includes('select=') || active.addMemberHref.includes('input=')) {
+    console.error('addMemberHref still has select=/input= leftover:', active.addMemberHref)
+    ok = false
+  }
+}
+
 if (!ok) {
   process.exit(1)
 }
@@ -265,3 +312,132 @@ if (syncedCase.status === 'synced' && syncedCase.iccfMemberId !== '12345') {
 
 if (!addOk) process.exit(1)
 console.log('✓ parseAddMemberResult ok')
+
+// ─── parseAddMemberSearchResult smoke ────────────────────────────────
+//
+// Real-fixture-derived test cases. The shape of these fixtures is hand-
+// extracted from iccf's add_classmbr_thrd5.php response (寶光崇正 instance,
+// April 2026). Names/IDs sanitized to synthetic values.
+
+// Case A: 1 candidate found — typical "search for 王小明 returns one row"
+const thrdFoundHtml = `
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=big5"></head>
+<body>
+  <style type="text/css">A:link {color: blue}</style>
+  <table>
+    <tr><td>共1 筆 -- 頁次 : 1 / 1</td></tr>
+  </table>
+  <form name=form_select_classmbr method=post action=../classmbr/add_classmbr_four5.php>
+    <table>
+      <tr>
+        <td><input type=checkbox name=join[0] value='T'></td>
+      </tr>
+    </table>
+    <input type=hidden name=noo[0] value='1'>
+    <input type=hidden name=no[0] value='100001'>
+    <input type=hidden name=no_mem[0] value='  200001'>
+    <input type=hidden name=name[0] value='王小明'>
+    <input type=hidden name=name_org[0] value='王大明'>
+    <input type=hidden name=section_code[0] value='ZZZ001'>
+    <input type=hidden name=section_name[0] value='測試001'>
+    <input type=hidden name=sex[0] value='乾'>
+    <input type=hidden name=birthday[0] value='19900101'>
+    <input type=hidden name=Type_Is_Form value=True>
+    <input type=hidden name=class_code value='B9999999'>
+    <input type=hidden name=class_sec_code value='ZZZ'>
+    <input type=hidden name=name_create value='    9999'>
+    <input type=hidden name=tiov_geo_close value='Fn2B9'>
+    <input type=hidden name=short_name value='測試班'>
+    <input type=hidden name=method value='1'>
+    <input type=hidden name=label value='add'>
+    <input type=submit value=確定加入>
+  </form>
+</body></html>`
+
+const found = parseAddMemberSearchResult(thrdFoundHtml)
+let searchOk = true
+if (found.status !== 'candidates') {
+  console.error('[thrd5 found] expected candidates, got', found.status)
+  searchOk = false
+} else {
+  if (found.candidates.length !== 1) {
+    console.error('[thrd5 found] expected 1 candidate, got', found.candidates.length)
+    searchOk = false
+  }
+  const c = found.candidates[0]
+  if (c?.name !== '王小明') { console.error('candidate name wrong:', c?.name); searchOk = false }
+  if (c?.nameOrg !== '王大明') { console.error('candidate name_org wrong:', c?.nameOrg); searchOk = false }
+  if (c?.sectionName !== '測試001') { console.error('candidate section_name wrong:', c?.sectionName); searchOk = false }
+  if (c?.idx !== 0) { console.error('candidate idx wrong:', c?.idx); searchOk = false }
+  if (!c?.rowHidden.no_mem || c.rowHidden.no_mem.trim() !== '200001') {
+    console.error('candidate no_mem wrong:', c?.rowHidden.no_mem); searchOk = false
+  }
+  if (!found.formAction.includes('add_classmbr_four5.php')) {
+    console.error('formAction wrong:', found.formAction); searchOk = false
+  }
+  if (found.formHidden.class_code !== 'B9999999') {
+    console.error('formHidden.class_code wrong:', found.formHidden.class_code); searchOk = false
+  }
+  if (found.formHidden.method !== '1') {
+    console.error('formHidden.method wrong:', found.formHidden.method); searchOk = false
+  }
+}
+
+// Case B: explicit not-found page — fixture text "中查無 [ 邱軒 ] 資料"
+const thrdNotFoundHtml = `
+<html><body>
+  <style>A:link {color: blue}</style>
+  <table><tr><td>共0 筆 -- 頁次 : 1 / 0</td></tr></table>
+  <input type=hidden name=class_code value='B9999999'>
+  <input type=hidden name=input value='不存在的人'>
+  <table>
+    <tr><td><font size=7 color=blue><b>◎ [ 道親資料庫 ] 中查無 [ </font><font size=7 color=red>不存在的人</font><font size=7 color=blue> ] 資料 ! </b></font></td></tr>
+  </table>
+</body></html>`
+
+const nf = parseAddMemberSearchResult(thrdNotFoundHtml)
+if (nf.status !== 'not_found') {
+  console.error('[thrd5 notfound] expected not_found, got', nf.status)
+  searchOk = false
+}
+
+// Case C: empty count without explicit 中查無 message — should still be not_found
+const thrdEmptyHtml = `<html><body>共0 筆 -- 頁次 : 1 / 0</body></html>`
+const empty = parseAddMemberSearchResult(thrdEmptyHtml)
+if (empty.status !== 'not_found') {
+  console.error('[thrd5 empty] expected not_found, got', empty.status)
+  searchOk = false
+}
+
+// Case D: unrecognized page (not redirected to 班務 list, no matching markers)
+const thrdUnknownHtml = `<html><body>登入過期，請重新登入</body></html>`
+const unknown = parseAddMemberSearchResult(thrdUnknownHtml)
+if (unknown.status !== 'unknown') {
+  console.error('[thrd5 unknown] expected unknown, got', unknown.status)
+  searchOk = false
+}
+
+// Case E: 2 candidates — same name across regions, parser must keep both
+const thrdMultiHtml = `
+<html><body>
+  <form action=../classmbr/add_classmbr_four5.php method=post>
+    <input type=hidden name=name[0] value='王小明'>
+    <input type=hidden name=name_org[0] value='王小明'>
+    <input type=hidden name=section_name[0] value='測試001'>
+    <input type=hidden name=no_mem[0] value='200001'>
+    <input type=hidden name=name[1] value='王小明'>
+    <input type=hidden name=name_org[1] value='王小明'>
+    <input type=hidden name=section_name[1] value='測試002'>
+    <input type=hidden name=no_mem[1] value='200002'>
+    <input type=hidden name=class_code value='B9999999'>
+  </form>
+</body></html>`
+
+const multi = parseAddMemberSearchResult(thrdMultiHtml)
+if (multi.status !== 'candidates' || multi.candidates.length !== 2) {
+  console.error('[thrd5 multi] expected 2 candidates, got', multi.status, (multi as any).candidates?.length)
+  searchOk = false
+}
+
+if (!searchOk) process.exit(1)
+console.log('✓ parseAddMemberSearchResult ok')

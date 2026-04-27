@@ -6,6 +6,7 @@ import { buildBig5FormBody, encodeBig5URIComponent, decodeBig5 } from './encodin
 import { IccfError } from './errors'
 import {
   parseAddMemberResult,
+  parseAddMemberSearchResult,
   parseClassServiceList,
   parseClassMemberList,
   parseCourseSessionList,
@@ -55,6 +56,14 @@ export interface IccfClassEntry {
    * treat `undefined` as 'active' for backward-compat.
    */
   status?: IccfClassStatus
+  /**
+   * Relative href of the 補入 button on the 班務 page (entry to the
+   * add_classmbr_sec5.php form). Required for {@link addMember} to drive the
+   * real 4-step iccf 補入 flow. Sessions persisted before this field was
+   * added will lack it; addMember returns a session_expired-style error in
+   * that case so the leader is prompted to re-login.
+   */
+  addMemberHref?: string
 }
 
 /**
@@ -207,22 +216,32 @@ export async function listClasses(jar: CookieJar): Promise<IccfClassEntry[]> {
 }
 
 /**
- * Add a member to an iccf class via the 補入 flow.
+ * Add a member to an iccf class via the real 4-step 補入 flow.
  *
- * Steps:
- *  0. Pre-check: fetch show_classmbr5.php and look for an existing
- *     (name, region) match. If found → return `duplicate` immediately
- *     without mutating iccf state.
- *  1. POST search form with name + area → get result list
- *  2. If exactly one match, follow confirmation link → get success page
+ * Discovered via real HTML fixtures (2026-04, 寶光崇正 instance). The earlier
+ * 2-step `add_classmbr_first5.php` flow was wrong — that endpoint redirects
+ * to the 班務 list page when called directly, producing a useless
+ * "0 班別資料" response. The real flow is:
+ *
+ *   Step 0 (pre-check, optional): GET show_classmbr5.php → already-in-class?
+ *   Step 1: GET addMemberHref → the 補入 form page (add_classmbr_sec5.php)
+ *   Step 2: Locate form_input1 (method=1, search by name) → harvest hidden inputs
+ *   Step 3: POST add_classmbr_thrd5.php with select=name_both + input=<name>
+ *   Step 4: Match candidates by (name||name_org) AND normalized section → exactly one
+ *   Step 5: POST add_classmbr_four5.php with all rows' hidden + join[i]=T
  *
  * @param jar           - active session cookie jar
  * @param name          - member's name as typed in the app (matched against
  *                        iccf 求道名 / 本名)
- * @param regionUnit    - "賢德" / "精明" — combined with regionNumber for matching
+ * @param regionUnit    - "賢德" / "精明" / "正宗" — combined with regionNumber
  * @param regionNumber  - "19" / "019" — zero-padded to 3 digits internally
- * @param classCode     - sec_class code (e.g. "TWT")
- * @param iccfClassCode - B-number (e.g. "B7000170") — needed for show_classmbr5 URL
+ * @param classCode     - sec_code (e.g. "TWT") — used by pre-check fallback URL
+ * @param iccfClassCode - B-number (e.g. "B7000170") — used by pre-check fallback URL
+ * @param addMemberHref - relative href of the 補入 button on the 班務 page,
+ *                        carrying real iccf params (name_create, tiov_geo_close,
+ *                        short_name, etc.). REQUIRED. If a session is missing
+ *                        this (persisted before this field existed), the
+ *                        leader is asked to re-login.
  */
 export async function addMember(
   jar: CookieJar,
@@ -231,147 +250,201 @@ export async function addMember(
   regionNumber: string,
   classCode: string,
   iccfClassCode: string,
+  addMemberHref?: string,
 ): Promise<AddMemberResult> {
+  if (!addMemberHref) {
+    return {
+      status: 'error',
+      message: 'iccf 班別資訊不足（請登出 iccf 後重新登入以更新班別清單）',
+    }
+  }
+
   const http = makeHttp(jar)
+  const targetName = name.trim()
+  const targetRegion = normalizeRegionKey(regionUnit, regionNumber)
 
   try {
     // ── Step 0: Pre-check class member list for existing (name, region) ──
+    // Cheap shortcut so we don't drive the full 4-step flow when the member
+    // is already in this class. If pre-check page can't be parsed we just
+    // continue — the real 補入 flow has its own duplicate handling.
     const listUrl =
       `/classmbr/show_classmbr5.php` +
       `?class_code=${encodeURIComponent(iccfClassCode)}` +
       `&class_sec_code=${encodeBig5URIComponent(classCode)}&first=T`
-    const listRes = await http.get(listUrl)
-    const listHtml = decodeBig5(listRes.data as Buffer)
-    const existing = parseClassMemberList(listHtml)
-
-    // Empty result + no recognizable header = page didn't render correctly
-    // (session expired mid-fetch, permission issue, etc). Fail-fast.
-    if (existing.length === 0 && !/求道名[\s\S]{0,200}區別/.test(listHtml)) {
-      return {
-        status: 'error',
-        message: 'iccf 班員列表頁無法解析（可能登入過期或網路錯誤），請重試',
+    try {
+      const listRes = await http.get(listUrl)
+      const listHtml = decodeBig5(listRes.data as Buffer)
+      const existing = parseClassMemberList(listHtml)
+      const dupe = existing.find((e) =>
+        (e.name === targetName || e.alternateName === targetName) &&
+        normalizeRegionKey(e.regionCell) === targetRegion,
+      )
+      if (dupe) {
+        return {
+          status: 'duplicate',
+          iccfMemberId: dupe.iccfMemberId || undefined,
+          message: '班員已在此班',
+        }
       }
+    } catch {
+      // Pre-check is best-effort. Network blip, header mismatch — let the
+      // real flow run and report its own error if the session is broken.
     }
 
-    const targetName = name.trim()
-    const targetRegion = normalizeRegionKey(regionUnit, regionNumber)
-    const match = existing.find(e =>
-      (e.name === targetName || e.alternateName === targetName) &&
-      normalizeRegionKey(e.regionCell) === targetRegion,
+    // ── Step 1: GET the 補入 form page ──
+    // addMemberHref is a relative path like "../classmbr/add_classmbr_sec5.php?…"
+    // captured from the 班務 list page (/class/select_class_service5.php).
+    // Resolve it against that base.
+    const formUrl = resolveUrl(
+      `${BASE}/class/select_class_service5.php`,
+      addMemberHref,
     )
-    if (match) {
-      return {
-        status: 'duplicate',
-        iccfMemberId: match.iccfMemberId || undefined,
-        message: '班員已在此班',
-      }
-    }
-
-    // ── Step 1: Load the add-member search form for this class ──
-    const area = regionUnit
-    const formUrl =
-      `/classmbr/add_classmbr_first5.php` +
-      `?label=add&class_code_head=&class_close=1&first=T&sec_class=${encodeBig5URIComponent(classCode)}`
-
-    const formRes = await http.get(formUrl)
+    const formRes = await http.get(formUrl, {
+      headers: { Referer: `${BASE}/class/select_class_service5.php` },
+    })
     const formHtml = decodeBig5(formRes.data as Buffer)
 
-    // Extract hidden inputs from the search form
-    const $form = cheerio.load(formHtml)
-    const hidden: Record<string, string> = {}
-    $form('input[type="hidden"]').each((_, el) => {
-      const n = $form(el).attr('name')
-      const v = $form(el).attr('value') ?? ''
-      if (n) hidden[n] = v
+    // ── Step 2: Find form_input1 (search-by-name, method=1) and harvest hidden inputs ──
+    // The 補入 page has 3 forms all targeting add_classmbr_thrd5.php
+    // (方式一/方式二/方式三). We want 方式二 — search by name. It is the
+    // only form whose hidden input <input name=method value='1'> is set.
+    const $f = cheerio.load(formHtml)
+    let searchFormEl: ReturnType<typeof $f>[number] | null = null
+    $f('form').each((_, el) => {
+      const action = $f(el).attr('action') ?? ''
+      if (!/add_classmbr_thrd5/.test(action)) return
+      const methodVal = $f(el)
+        .find('input')
+        .filter((_i, inp) => $f(inp).attr('name') === 'method')
+        .first()
+        .attr('value')
+      if (methodVal === '1') {
+        searchFormEl = el
+        return false
+      }
     })
 
-    // Determine the search action URL
-    const actionRaw = $form('form').first().attr('action') ?? formUrl
-    const actionUrl = actionRaw.startsWith('http') ? actionRaw : `${BASE}/${actionRaw.replace(/^\//, '')}`
+    if (!searchFormEl) {
+      console.error('[iccf.addMember] form_input1 (method=1) missing on form page', {
+        formUrl,
+        htmlLength: formHtml.length,
+        hasThrd5: /add_classmbr_thrd5/.test(formHtml),
+      })
+      return {
+        status: 'error',
+        message: 'iccf 補入表單結構異常（找不到方式二搜尋欄），請聯繫管理員',
+      }
+    }
 
-    // Step 2: Submit search with member name and area
+    const $searchForm = $f(searchFormEl)
+    const formHidden: Record<string, string> = {}
+    $searchForm.find('input').each((_, inp) => {
+      const type = ($f(inp).attr('type') ?? '').toLowerCase()
+      if (type !== 'hidden') return
+      const fieldName = $f(inp).attr('name')
+      if (!fieldName) return
+      formHidden[fieldName] = $f(inp).attr('value') ?? ''
+    })
+    formHidden.method = '1' // Force, in case multiple methods exist on form
+
+    // ── Step 3: POST search to add_classmbr_thrd5.php ──
+    const searchUrl = resolveUrl(formUrl, 'add_classmbr_thrd5.php')
     const searchBody = buildBig5FormBody({
-      ...hidden,
-      mbr_name: name,
-      area_unit: area,
-      label: 'search',
-      sec_class: classCode,
-      B1: '查詢',
+      ...formHidden,
+      select: 'name_both', // search both 求道名 and 本名
+      input: targetName, // trimmed; raw `name` could carry whitespace from caller
+      select_sort: 'sort_name',
+      select_sort_order: 'order_asc',
     })
-
-    const searchRes = await http.post(actionUrl, searchBody, {
+    const searchRes = await http.post(searchUrl, searchBody, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        Referer: `${BASE}${formUrl}`,
+        Referer: formUrl,
       },
     })
     const searchHtml = decodeBig5(searchRes.data as Buffer)
 
-    // Parse preliminary result
-    const preliminary = parseAddMemberResult(searchHtml)
-
-    // Diagnostic only when parser cannot classify the page — log structural
-    // metadata (NOT the body) so we can extend the parser next time iccf
-    // returns something unfamiliar. Search responses contain member names,
-    // so we do not log raw HTML.
-    if (preliminary.status === 'error') {
-      console.error('[iccf.addMember] search response unrecognized', {
-        url: actionUrl,
+    // ── Step 4: Parse search result ──
+    const sr = parseAddMemberSearchResult(searchHtml)
+    if (sr.status === 'not_found') {
+      return { status: 'not_found', message: sr.message }
+    }
+    if (sr.status === 'unknown') {
+      console.error('[iccf.addMember] thrd5 response unrecognized', {
+        searchUrl,
         htmlLength: searchHtml.length,
-        hasStyleInBody: /<body[^>]*>[\s\S]*?<style/i.test(searchHtml),
-        hasAlert: /alert\s*\(/.test(searchHtml),
-        hasMbrIdLink: /mbr_id=\d+/.test(searchHtml),
+        hasJoinCheckbox: /name=join\[/.test(searchHtml),
+        hasFour5: /add_classmbr_four5/.test(searchHtml),
       })
+      return { status: 'error', message: sr.message }
     }
 
-    // If already synced, duplicate, not_found, forbidden, error — return immediately.
-    // `error` is intentionally NOT routed to confirm-link auto-follow: the
-    // raw `add_classmbr…mbr_id=` selector is too broad to safely auto-trigger
-    // a 補入 mutation when the page structure is unknown.
-    if (preliminary.status !== 'name_mismatch') {
-      return preliminary
-    }
-
-    // name_mismatch means search result list was shown.
-    // Attempt to auto-select if exactly one row matches the name.
-    const $search = cheerio.load(searchHtml)
-    const confirmLinks: string[] = []
-    $search('a[href]').each((_, el) => {
-      const href = $search(el).attr('href') ?? ''
-      if (href.includes('add_classmbr') && href.includes('mbr_id=')) {
-        confirmLinks.push(href)
-      }
+    // ── Step 5: Match candidates by name + region ──
+    const matches = sr.candidates.filter((c) => {
+      const nameMatch = c.name === targetName || c.nameOrg === targetName
+      const regionMatch = normalizeRegionKey(c.sectionName) === targetRegion
+      return nameMatch && regionMatch
     })
 
-    if (confirmLinks.length === 0) {
-      return { status: 'not_found', message: 'iccf 查無符合班員' }
-    }
-
-    if (confirmLinks.length > 1) {
+    if (matches.length === 0) {
+      const sample = sr.candidates[0]
       return {
         status: 'name_mismatch',
-        message: `iccf 找到 ${confirmLinks.length} 筆符合，請手動確認補入`,
+        message:
+          `iccf 找到 ${sr.candidates.length} 筆同名但區域不符（您輸入「${targetRegion}」` +
+          (sample ? `，iccf 顯示「${sample.sectionName || sample.sectionCode}」` : '') +
+          `），請手動確認`,
+      }
+    }
+    if (matches.length > 1) {
+      return {
+        status: 'name_mismatch',
+        message: `iccf 找到 ${matches.length} 筆同名同區，請手動確認補入`,
       }
     }
 
-    // Exactly one match — follow the confirm link
-    const confirmHref = confirmLinks[0]
-    const confirmUrl = confirmHref.startsWith('http')
-      ? confirmHref
-      : `${BASE}/${confirmHref.replace(/^\//, '')}`
+    // ── Step 6: Submit selected candidate to add_classmbr_four5.php ──
+    const matched = matches[0]
+    const submitUrl = resolveUrl(searchUrl, sr.formAction)
 
-    const confirmRes = await http.get(confirmUrl)
-    const confirmHtml = decodeBig5(confirmRes.data as Buffer)
+    // Build body: form-level hidden + ALL row[i] hidden + join[matched.idx]=T.
+    // We send every row's hidden fields (not just the matched row's) because
+    // the iccf PHP reads by `count` and may iterate all indices server-side.
+    const submitFields: Record<string, string> = { ...sr.formHidden }
+    for (const cand of sr.candidates) {
+      for (const [k, v] of Object.entries(cand.rowHidden)) {
+        submitFields[`${k}[${cand.idx}]`] = v
+      }
+    }
+    submitFields[`join[${matched.idx}]`] = 'T'
 
-    const confirmResult = parseAddMemberResult(confirmHtml)
-    if (confirmResult.status === 'error') {
-      console.error('[iccf.addMember] confirm response unrecognized', {
-        url: confirmUrl,
-        htmlLength: confirmHtml.length,
-        hasAlert: /alert\s*\(/.test(confirmHtml),
+    const submitBody = buildBig5FormBody(submitFields)
+    const submitRes = await http.post(submitUrl, submitBody, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Referer: searchUrl,
+      },
+    })
+    const submitHtml = decodeBig5(submitRes.data as Buffer)
+
+    const result = parseAddMemberResult(submitHtml)
+    if (result.status === 'error') {
+      console.error('[iccf.addMember] four5 response unrecognized', {
+        submitUrl,
+        htmlLength: submitHtml.length,
+        hasAlert: /alert\s*\(/.test(submitHtml),
       })
     }
-    return confirmResult
+    // Carry over the matched person's no_mem as iccfMemberId on success
+    // (parseAddMemberResult only extracts mbr_id from a URL pattern, which
+    // the four5 success page may or may not contain). Build a new object —
+    // never mutate the parser's return value.
+    if (result.status === 'synced' && !result.iccfMemberId) {
+      const noMem = (matched.rowHidden.no_mem ?? '').replace(/\s+/g, '').trim()
+      if (noMem) return { ...result, iccfMemberId: noMem }
+    }
+    return result
   } catch (e) {
     if (e instanceof IccfError) throw e
     throw new IccfError('network_error', `iccf 補入失敗: ${(e as Error).message}`, e)
