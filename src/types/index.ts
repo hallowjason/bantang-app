@@ -28,6 +28,19 @@ export interface AppUser {
 
 // ─── /classes/{classId} ──────────────────────────────────
 
+export interface IccfClassCodeHistoryEntry {
+  from: string                  // 舊班別代碼（首次寫入時為空字串）
+  to: string                    // 新班別代碼
+  at: string                    // ISO 8601 timestamp
+  byLeaderUid: string           // 觸發此次寫入的領班 uid
+  reason:
+    | 'backfill'                // iccf 恰好 1 個 active，直接填入
+    | 'backfill_name_match'     // iccf 多個 active，靠 app 班名 subsequence 比對命中唯一一個
+    | 'annual_renewal'          // 舊碼對應 iccf 已結班，自動換到新班
+    | 'annual_renewal_name_match' // 換班 + 多 active 時靠 name 比對
+  matchedClassName?: string     // *_name_match 時記下被匹配到的 iccf 完整班名
+}
+
 export interface Class {
   id: string
   name: string
@@ -35,6 +48,7 @@ export interface Class {
   sheetTabName?: string    // 課表 Google Sheet 的分頁名稱，如 "2026光明"
   sheetClassLabel?: string // 分頁內的等級班標頭，如 "禮行"、"義理"
   iccfClassCode?: string   // iccf 系統班別代碼，如 "TWT019"
+  iccfClassCodeHistory?: IccfClassCodeHistoryEntry[] // 自動寫入審計紀錄
 }
 
 // ─── /etiquette_items/{itemId} ───────────────────────────

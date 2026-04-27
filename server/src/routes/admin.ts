@@ -126,6 +126,7 @@ function toClassDto(c: Class) {
     sheetTabName: c.sheetTabName ?? '',
     sheetClassLabel: c.sheetClassLabel ?? '',
     iccfClassCode: c.iccfClassCode ?? '',
+    iccfClassCodeHistory: c.iccfClassCodeHistory ?? [],
   }
 }
 

@@ -34,6 +34,22 @@ const ROLE_LABEL: Record<UserRole, string> = {
 
 // ─── 班級管理 Tab ─────────────────────────────────────────
 
+const HISTORY_REASON_LABEL: Record<NonNullable<Class['iccfClassCodeHistory']>[number]['reason'], string> = {
+  backfill:                   '首次自動填入',
+  backfill_name_match:        '首次填入（依班名比對）',
+  annual_renewal:             '年度自動換班',
+  annual_renewal_name_match:  '年度換班（依班名比對）',
+}
+
+function formatHistoryAt(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString('zh-TW', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
+
 function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () => void }) {
   const [newName, setNewName]   = useState('')
   const [creating, setCreating] = useState(false)
@@ -44,6 +60,7 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
   const [editIccfCode, setEditIccfCode]     = useState('')
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState<string | null>(null)
+  const [openHistoryId, setOpenHistoryId] = useState<string | null>(null)
 
   const handleCreate = async () => {
     const name = newName.trim()
@@ -178,26 +195,62 @@ function ClassesTab({ classes, onRefresh }: { classes: Class[]; onRefresh: () =>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-ink">{cls.name}</p>
-                    {cls.sheetTabName ? (
-                      <p className="text-xs text-muted mt-0.5">課表：{cls.sheetTabName}{cls.sheetClassLabel ? ` › ${cls.sheetClassLabel}` : ''}</p>
-                    ) : (
-                      <p className="text-xs text-amber-500 mt-0.5">尚未設定課表分頁</p>
-                    )}
-                    {cls.iccfClassCode ? (
-                      <p className="text-xs text-muted mt-0.5 font-mono">iccf: {cls.iccfClassCode}</p>
-                    ) : (
-                      <p className="text-xs text-muted mt-0.5">iccf: 未設定</p>
-                    )}
-                    <p className="text-xs text-muted font-mono mt-0.5 select-all">{cls.id}</p>
+                <>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-ink">{cls.name}</p>
+                      {cls.sheetTabName ? (
+                        <p className="text-xs text-muted mt-0.5">課表：{cls.sheetTabName}{cls.sheetClassLabel ? ` › ${cls.sheetClassLabel}` : ''}</p>
+                      ) : (
+                        <p className="text-xs text-amber-500 mt-0.5">尚未設定課表分頁</p>
+                      )}
+                      {cls.iccfClassCode ? (
+                        <p className="text-xs text-muted mt-0.5 font-mono">iccf: {cls.iccfClassCode}</p>
+                      ) : (
+                        <p className="text-xs text-muted mt-0.5">iccf: 未設定</p>
+                      )}
+                      <p className="text-xs text-muted font-mono mt-0.5 select-all">{cls.id}</p>
+                    </div>
+                    <button onClick={() => openEdit(cls)}
+                      className="btn-ghost text-xs px-3 py-1.5 shrink-0">
+                      編輯
+                    </button>
                   </div>
-                  <button onClick={() => openEdit(cls)}
-                    className="btn-ghost text-xs px-3 py-1.5 shrink-0">
-                    編輯
-                  </button>
-                </div>
+
+                  {/* iccf 寫入審計歷程 */}
+                  {(cls.iccfClassCodeHistory?.length ?? 0) > 0 && (
+                    <div className="mt-2 border-t border-hairline pt-2">
+                      <button
+                        onClick={() => setOpenHistoryId(openHistoryId === cls.id ? null : cls.id)}
+                        className="text-xs text-muted hover:text-ink flex items-center gap-1"
+                      >
+                        <span>{openHistoryId === cls.id ? '▾' : '▸'}</span>
+                        <span>iccf 自動寫入歷程（{cls.iccfClassCodeHistory!.length} 筆）</span>
+                      </button>
+                      {openHistoryId === cls.id && (
+                        <ul className="mt-2 flex flex-col gap-2">
+                          {[...cls.iccfClassCodeHistory!]
+                            .sort((a, b) => (a.at < b.at ? 1 : -1))
+                            .map((h, idx) => (
+                              <li key={idx} className="card-lovable-compact text-xs flex flex-col gap-0.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-medium text-ink">{HISTORY_REASON_LABEL[h.reason] ?? h.reason}</span>
+                                  <span className="text-muted">{formatHistoryAt(h.at)}</span>
+                                </div>
+                                <p className="font-mono text-muted">
+                                  {h.from ? h.from : '（空）'} → {h.to}
+                                </p>
+                                {h.matchedClassName && (
+                                  <p className="text-muted">比對到：<span className="text-ink">{h.matchedClassName}</span></p>
+                                )}
+                                <p className="text-muted">由領班 <span className="font-mono">{h.byLeaderUid.slice(0, 8)}…</span> 觸發</p>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))

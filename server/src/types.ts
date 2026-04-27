@@ -26,7 +26,25 @@ export interface IccfClassCodeHistoryEntry {
   to: string
   at: string   // ISO 8601
   byLeaderUid: string
-  reason: 'backfill' | 'annual_renewal'
+  /**
+   * - backfill              : DB 空 + iccf 恰好 1 個 active，直接寫入
+   * - backfill_name_match   : DB 空 + iccf 多個 active，用 app class.name 字元 subsequence
+   *                           比對命中恰好 1 個 active className 才寫入
+   * - annual_renewal        : DB 有舊碼 + 舊碼對應 iccf 已結班 + iccf 恰好 1 個新 active
+   * - annual_renewal_name_match : 同上但多個 active 時用 name subsequence 篩到唯一一個
+   */
+  reason:
+    | 'backfill'
+    | 'backfill_name_match'
+    | 'annual_renewal'
+    | 'annual_renewal_name_match'
+  /**
+   * Optional: snapshot of the matched iccf className at write time. Only set
+   * for *_name_match reasons so the audit log shows which iccf class was
+   * picked. Useful for auditing potential mis-matches without replaying the
+   * iccf list.
+   */
+  matchedClassName?: string
 }
 
 export interface Class {
